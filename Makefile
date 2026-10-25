@@ -1,7 +1,6 @@
 # mbelib-neo, a codec plugin for tcd (urfd-ng)
 #
-#   ./build-mbelib-neo.sh     (once: downloads and builds mbelib-neo 2.6.2 in ./mbelib-neo-2.6.2)
-#   make
+#   make                      (downloads and builds mbelib-neo 2.6.2 in ./mbelib-neo-2.6.2 the first time)
 #   sudo make install         (to /usr/local/lib/tcd/)
 # tcd.ini then loads it:
 #   CodecPlugin = /usr/local/lib/tcd/mbelib_neo_codec.so
@@ -22,11 +21,14 @@ all : $(PLUGIN)
 $(PLUGIN) : mbelib_neo_plugin.o $(MBELIB)/lib/libmbe-neo.a
 	$(CXX) -shared mbelib_neo_plugin.o $(MBELIB)/lib/libmbe-neo.a -o $@ -lm
 
-mbelib_neo_plugin.o : mbelib_neo_plugin.cpp $(TCD)/CodecPlugin.h Makefile
+# mbelib-neo first: its headers come with its install (also with make -j)
+mbelib_neo_plugin.o : mbelib_neo_plugin.cpp $(TCD)/CodecPlugin.h Makefile | $(MBELIB)/lib/libmbe-neo.a
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# without mbelib-neo: fetch and build it here (the default location only)
 $(MBELIB)/lib/libmbe-neo.a :
-	@echo "mbelib-neo is missing in $(MBELIB): run ../../tools/build-mbelib-neo.sh first" >&2; exit 1
+	@[ "$(MBELIB)" = "mbelib-neo-2.6.2/install" ] || { echo "mbelib-neo is missing in $(MBELIB)" >&2; exit 1; }
+	./build-mbelib-neo.sh
 
 clean :
 	$(RM) *.o $(PLUGIN)

@@ -20,6 +20,8 @@ make
 sudo make install            # /usr/local/lib/tcd/mbelib_neo_codec.so
 ```
 
+Für tcd in Docker dieses Repository stattdessen nach `tcd/plugins/mbelib-neo` des urfd-ng-Klons klonen; das Image baut es mit (siehe „tcd in Docker“ in [tcd/README.de.md](https://github.com/jcmerg/urfd-ng/blob/main/tcd/README.de.md#tcd-in-docker)).
+
 mbelib-neo liegt nicht in diesem Repository: `build-mbelib-neo.sh` holt sein Quell-Archiv, das Plugin linkt es statisch. Nur die Teile für D-Star und AMBE+2 landen im Plugin.
 
 ## Benutzen
