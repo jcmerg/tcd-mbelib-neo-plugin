@@ -6,6 +6,13 @@
 #
 # Then build the plugin with MBELIB=<directory>/install. Needs cmake, a C
 # compiler and curl or wget.
+#
+# 64-bit hosts get mbelib-neo's SSE2/AVX2/NEON routines by default. On 32-bit
+# ARM (armhf, e.g. Raspberry Pi OS) they need NEON switched on by hand; this
+# script does that when the CPU has NEON (Raspberry Pi 2 and later), the
+# Pi 1 and Zero keep the scalar routines.
+#
+# A newer mbelib-neo: see "Updating mbelib-neo" in README.md.
 set -e
 
 VER=2.6.2
@@ -27,9 +34,20 @@ fi
 echo "$SUM  $TMP/mbe.tgz" | sha256sum -c - >/dev/null || { echo "mbelib-neo: checksum mismatch" >&2; exit 1; }
 mkdir -p "$DIR/src"
 tar xzf "$TMP/mbe.tgz" -C "$DIR/src" --strip-components=1
+
+# 32-bit ARM with NEON: armv7-a + NEON, and the SIMD routines on
+set --
+case "$(${CC:-cc} -dumpmachine 2>/dev/null)" in
+	arm*-*gnueabihf)
+		if grep -qwE 'neon|asimd' /proc/cpuinfo 2>/dev/null; then
+			set -- -DMBELIB_ENABLE_SIMD=ON "-DCMAKE_C_FLAGS=-march=armv7-a -mfpu=neon"
+			echo "mbelib-neo: armhf with NEON, building its NEON routines"
+		fi ;;
+esac
+
 cmake -S "$DIR/src" -B "$DIR/build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$(cd "$DIR" && pwd)/install" \
 	-DCMAKE_INSTALL_LIBDIR=lib -DMBELIB_BUILD_TESTS=OFF -DMBELIB_BUILD_EXAMPLES=OFF \
-	-DMBELIB_WARNINGS_AS_ERRORS=OFF -DMBELIB_ENABLE_NATIVE=OFF >/dev/null
+	-DMBELIB_WARNINGS_AS_ERRORS=OFF -DMBELIB_ENABLE_NATIVE=OFF "$@" >/dev/null
 cmake --build "$DIR/build" -j"$(nproc)"
 cmake --install "$DIR/build" >/dev/null
 echo "mbelib-neo $VER in $DIR/install"

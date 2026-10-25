@@ -22,7 +22,18 @@ sudo make install            # /usr/local/lib/tcd/mbelib_neo_codec.so
 
 Für tcd in Docker dieses Repository stattdessen nach `tcd/plugins/mbelib-neo` des urfd-ng-Klons klonen; das Image baut es mit (siehe „tcd in Docker“ in [tcd/README.de.md](https://github.com/jcmerg/urfd-ng/blob/main/tcd/README.de.md#tcd-in-docker)).
 
-mbelib-neo liegt nicht in diesem Repository: `build-mbelib-neo.sh` holt sein Quell-Archiv, das Plugin linkt es statisch. Nur die Teile für D-Star und AMBE+2 landen im Plugin.
+mbelib-neo liegt nicht in diesem Repository: `build-mbelib-neo.sh` holt sein Quell-Archiv, das Plugin linkt es statisch. Nur die Teile für D-Star und AMBE+2 landen im Plugin. Auf 64-Bit-Systemen nutzt mbelib-neo seine SIMD-Routinen von selbst; auf 32-Bit-ARM (armhf, z. B. Raspberry Pi OS) schaltet das Skript seine NEON-Routinen ein, wenn die CPU NEON kann (Raspberry Pi 2 und neuer). Die Binaries bleiben übertragbar (`MBELIB_ENABLE_NATIVE=OFF`).
+
+### mbelib-neo aktualisieren
+
+Das Skript baut genau eine Version, gegen ihre SHA-256 geprüft, damit ein Build überall gleich ist. Für eine neuere Version von [mbelib-neo](https://github.com/arancormonk/mbelib-neo/releases):
+
+```bash
+VER=2.7.0   # die neue Version
+curl -fsSL https://github.com/arancormonk/mbelib-neo/releases/download/v$VER/mbelib-neo-$VER-source.tar.gz | sha256sum
+```
+
+Version und Summe in `VER=` und `SUM=` in `build-mbelib-neo.sh` eintragen, das alte Verzeichnis `mbelib-neo-*` löschen, dann `./build-mbelib-neo.sh && make clean && make` (in Docker: das tcd-Image neu bauen). Vorher die Release-Notes lesen: Eine neue Hauptversion kann die API ändern.
 
 ## Benutzen
 
@@ -41,7 +52,7 @@ Einzelheiten unter „Codec-Plugins“ in [tcd/README.de.md](https://github.com/
 
 ## Gemessen
 
-Auf einem Raspberry Pi 4 (armhf) etwa 0,20 ms zum Kodieren und 0,08 ms zum Dekodieren eines 20-ms-Frames, auf einem Pi 5 0,09 ms und 0,03 ms. Gegen einen DVSI DV3003 gehen die Frames in beide Richtungen: mbelib-neo-Frames, die der DV3003 dekodiert, und DV3003-Frames, die mbelib-neo dekodiert, kommen mit demselben Pegel und Hüllkurvenverlauf an wie beim DV3003 allein, für D-Star und DMR.
+Auf einem Raspberry Pi 4 (armhf) etwa 0,18 ms zum Kodieren und 0,04 ms zum Dekodieren eines 20-ms-Frames mit den NEON-Routinen (0,20 und 0,07 ms ohne, die kodierten Frames Bit für Bit gleich), auf einem Pi 5 0,09 ms und 0,03 ms. Gegen einen DVSI DV3003 gehen die Frames in beide Richtungen: mbelib-neo-Frames, die der DV3003 dekodiert, und DV3003-Frames, die mbelib-neo dekodiert, kommen mit demselben Pegel und Hüllkurvenverlauf an wie beim DV3003 allein, für D-Star und DMR.
 
 Klang gegen einen DV3003 (25.10.2026): PESQ (ITU-T P.862, Schmalband, MOS von 1 bis 4,5) gegen das Original, Mittel über 5 Clips (4 FM-Mitschnitte, 1 Sprachclip, 8 kHz), jedes Paar aus Encoder und Decoder:
 
