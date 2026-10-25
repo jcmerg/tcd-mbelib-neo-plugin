@@ -43,6 +43,22 @@ Einzelheiten unter „Codec-Plugins“ in [tcd/README.de.md](https://github.com/
 
 Auf einem Raspberry Pi 4 (armhf) etwa 0,20 ms zum Kodieren und 0,08 ms zum Dekodieren eines 20-ms-Frames, auf einem Pi 5 0,09 ms und 0,03 ms. Gegen einen DVSI DV3003 gehen die Frames in beide Richtungen: mbelib-neo-Frames, die der DV3003 dekodiert, und DV3003-Frames, die mbelib-neo dekodiert, kommen mit demselben Pegel und Hüllkurvenverlauf an wie beim DV3003 allein, für D-Star und DMR.
 
+Klang gegen einen DV3003 (25.10.2026): PESQ (ITU-T P.862, Schmalband, MOS von 1 bis 4,5) gegen das Original, Mittel über 5 Clips (4 FM-Mitschnitte, 1 Sprachclip, 8 kHz), jedes Paar aus Encoder und Decoder:
+
+| Encoder → Decoder | DMR/YSF | D-Star |
+|---|---|---|
+| DV3003 → DV3003 | 2,66 | 2,62 |
+| DV3003 → mbelib-neo | 2,56 | 2,46 |
+| mbelib-neo → DV3003 | 2,64 | 2,40 |
+| mbelib-neo → mbelib-neo | 2,61 | 2,59 |
+
+Mit Bitfehlern in den DV3003-Frames (1 / 3 / 5 % der Bits gekippt), dekodiert vom DV3003 und von mbelib-neo: DMR 2,63 / 2,46 / 2,20 gegen 2,50 / 2,39 / 2,15, D-Star 2,56 / 2,34 / 2,11 gegen 2,41 / 2,25 / 1,92.
+
+- **DMR**: Der Encoder ist so gut wie der DV3003 (das hören die Funkgeräte von tcd), der Decoder etwa 0,1 MOS schlechter; hörbar höchstens im direkten A/B-Vergleich.
+- **D-Star**: etwa 0,15 schlechter im Decoder und 0,2 im Encoder. Wo ein AMBE-Stick da ist, D-Star auf ihm lassen und das Plugin DMR und die Module über die Sticks hinaus machen lassen.
+- Mit Bitfehlern verliert mbelib-neo etwa so schnell wie der DV3003.
+- Fünf Clips und PESQ sind ein Anhaltspunkt, kein Hörtest: Unterschiede unter etwa 0,1 sagen wenig.
+
 ## Dateien
 
 - `mbelib_neo_plugin.cpp`: das Plugin
