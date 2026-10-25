@@ -87,6 +87,17 @@ static void *Open(uint32_t codec)
 	return st;
 }
 
+// a new transmission: mbelib-neo's restart, encoder analysis and prediction
+// and the decoder's prediction, repeat and muting state begin afresh
+static void Start(void *state)
+{
+	auto *st = static_cast<SStream *>(state);
+	mbe_ambe2400EncoderReset(st->enc2400);
+	mbe_ambe2450EncoderReset(st->enc2450);
+	mbe_initMbeParms(&st->encCur, &st->encPrev, &st->encEnh);
+	mbe_initMbeParms(&st->decCur, &st->decPrev, &st->decEnh);
+}
+
 static void Close(void *state)
 {
 	auto *st = static_cast<SStream *>(state);
@@ -152,6 +163,8 @@ static const tcd_codec_plugin s_Plugin = {
 	Close,
 	Encode,
 	Decode,
+	Start,
+	nullptr,	// nothing to do at the end: the next start resets
 };
 
 extern "C" const tcd_codec_plugin *tcd_codec_plugin(void)
