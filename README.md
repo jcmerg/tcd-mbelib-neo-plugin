@@ -6,7 +6,7 @@ A codec plugin for **tcd**, the transcoder of [urfd-ng](https://github.com/jcmer
 
 ## Patent notice
 
-**Read this before you build or use it.** Software implementations of AMBE and AMBE+2 may implicate patents. mbelib-neo's own [patent research record](https://github.com/arancormonk/mbelib-neo/blob/main/legal/patents.md) lists US 8,359,197 (AMBE+2 half rate) as active, with a projected expiry of 2028-05-20, and further open records. No patent license is given or implied by this plugin, by mbelib-neo or by the GPL. Whether to build and use it, and where, is your decision; this is no legal advice. This plugin is therefore not part of urfd-ng, not built by its setup or Docker image, and off unless you load it.
+**Read this before you build or use it.** Software implementations of AMBE and AMBE+2 may implicate patents. mbelib-neo's own [patent research record](https://github.com/arancormonk/mbelib-neo/blob/main/legal/patents.md) lists US 8,359,197 (AMBE+2 half rate) as active, with a projected expiry of 2028-05-20, and further open records. No patent license is given or implied by this plugin, by mbelib-neo or by the GPL. Whether to build and use it, and where, is your decision; this is no legal advice. This plugin is therefore not part of urfd-ng: its setup and builds take it only when you clone it into `tcd/plugins/` yourself, and it is off unless you load it.
 
 ## Build
 
@@ -20,7 +20,9 @@ make
 sudo make install            # /usr/local/lib/tcd/mbelib_neo_codec.so
 ```
 
-For tcd in Docker, clone this repository into `tcd/plugins/mbelib-neo` of the urfd-ng checkout instead; the image builds it (see "tcd in Docker" in [tcd/README.md](https://github.com/jcmerg/urfd-ng/blob/main/tcd/README.md#tcd-in-docker)).
+Or clone this repository into `tcd/plugins/mbelib-neo` of the urfd-ng checkout: the tcd Docker image and `tcd/build.sh` build it with tcd and install it, and `setup.sh update` pulls it (see "Codec plugins" and "tcd in Docker" in [tcd/README.md](https://github.com/jcmerg/urfd-ng/blob/main/tcd/README.md#codec-plugins)).
+
+To test it, urfd-ng has `tcd/tools/` (`make` there): `./codectest /usr/local/lib/tcd/mbelib_neo_codec.so dmr in.raw out.frames out.raw` encodes and decodes 8 kHz s16le PCM and prints the time per frame; `dvsitest` compares with a DV3003.
 
 mbelib-neo is not part of this repository: `build-mbelib-neo.sh` fetches its release source archive and the plugin links it statically. Only the D-Star and AMBE+2 parts end up in the plugin. On 64-bit hosts mbelib-neo uses its SIMD routines by default; on 32-bit ARM (armhf, e.g. Raspberry Pi OS) the script switches its NEON routines on when the CPU has NEON (Raspberry Pi 2 and later). The binaries stay portable (`MBELIB_ENABLE_NATIVE=OFF`).
 
@@ -33,7 +35,7 @@ VER=2.7.0   # the new version
 curl -fsSL https://github.com/arancormonk/mbelib-neo/releases/download/v$VER/mbelib-neo-$VER-source.tar.gz | sha256sum
 ```
 
-Put the version and the sum into `VER=` and `SUM=` in `build-mbelib-neo.sh`, remove the old `mbelib-neo-*` directory, then `./build-mbelib-neo.sh && make clean && make` (in Docker: rebuild the tcd image). Read its release notes first: a new major version can change the API.
+Put the version and the sum into `VER=` and `SUM=` in `build-mbelib-neo.sh`, remove the old `mbelib-neo-*` directory, then `./build-mbelib-neo.sh && make clean && make` (in Docker or in `tcd/plugins/`: rebuild tcd, which rebuilds the plugin). Read its release notes first: a new major version can change the API.
 
 ## Use
 
