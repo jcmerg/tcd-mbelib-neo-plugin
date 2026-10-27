@@ -1,6 +1,6 @@
 # mbelib-neo, a codec plugin for tcd (urfd-ng)
 #
-#   make                      (downloads and builds mbelib-neo 2.6.2 in ./mbelib-neo-2.6.2 the first time)
+#   make                      (downloads and builds mbelib-neo 2.6.4 in ./mbelib-neo-2.6.4 the first time)
 #   sudo make install         (to /usr/local/lib/tcd/)
 # tcd.ini then loads it:
 #   CodecPlugin = /usr/local/lib/tcd/mbelib_neo_codec.so
@@ -10,7 +10,7 @@
 
 # CodecPlugin.h: the copy here, or TCD=/path/to/urfd-ng/tcd for the one of a checkout
 TCD ?= .
-MBELIB ?= mbelib-neo-2.6.2/install
+MBELIB ?= mbelib-neo-2.6.4/install
 PLUGINDIR ?= /usr/local/lib/tcd
 
 CXXFLAGS = -O2 -W -Werror -std=c++17 -fPIC -I$(TCD) -I$(MBELIB)/include
@@ -27,7 +27,7 @@ mbelib_neo_plugin.o : mbelib_neo_plugin.cpp $(TCD)/CodecPlugin.h Makefile | $(MB
 
 # without mbelib-neo: fetch and build it here (the default location only)
 $(MBELIB)/lib/libmbe-neo.a :
-	@[ "$(MBELIB)" = "mbelib-neo-2.6.2/install" ] || { echo "mbelib-neo is missing in $(MBELIB)" >&2; exit 1; }
+	@[ "$(MBELIB)" = "mbelib-neo-2.6.4/install" ] || { echo "mbelib-neo is missing in $(MBELIB)" >&2; exit 1; }
 	./build-mbelib-neo.sh
 
 clean :

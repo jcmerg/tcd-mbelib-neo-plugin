@@ -15,7 +15,7 @@ Needs a C/C++ compiler, `make`, `cmake` and `curl` or `wget` (Debian, Ubuntu, Ra
 ```bash
 git clone https://github.com/jcmerg/tcd-mbelib-neo-plugin.git
 cd tcd-mbelib-neo-plugin
-./build-mbelib-neo.sh        # downloads mbelib-neo 2.6.2 (checked against its SHA-256) and builds it here
+./build-mbelib-neo.sh        # downloads mbelib-neo 2.6.4 (checked against its SHA-256) and builds it here
 make
 sudo make install            # /usr/local/lib/tcd/mbelib_neo_codec.so
 ```
@@ -35,7 +35,7 @@ VER=2.7.0   # the new version
 curl -fsSL https://github.com/arancormonk/mbelib-neo/releases/download/v$VER/mbelib-neo-$VER-source.tar.gz | sha256sum
 ```
 
-Put the version and the sum into `VER=` and `SUM=` in `build-mbelib-neo.sh`, remove the old `mbelib-neo-*` directory, then `./build-mbelib-neo.sh && make clean && make` (in Docker or in `tcd/plugins/`: rebuild tcd, which rebuilds the plugin). Read its release notes first: a new major version can change the API.
+Put the version and the sum into `VER=` and `SUM=` in `build-mbelib-neo.sh` and the version into the `Makefile`, remove the old `mbelib-neo-*` directory, then `./build-mbelib-neo.sh && make clean && make` (in Docker or in `tcd/plugins/`: rebuild tcd, which rebuilds the plugin). Read its release notes first: a new major version can change the API.
 
 ## Use
 

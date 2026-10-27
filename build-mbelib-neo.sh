@@ -1,8 +1,8 @@
 #!/bin/sh
-# Builds mbelib-neo 2.6.2 (its release source archive, with PFFFT in it, no
+# Builds mbelib-neo 2.6.4 (its release source archive, with PFFFT in it, no
 # download during the build) for the mbelib-neo codec plugin.
 #
-#   ./build-mbelib-neo.sh [<directory>]     (default: ./mbelib-neo-2.6.2)
+#   ./build-mbelib-neo.sh [<directory>]     (default: ./mbelib-neo-2.6.4)
 #
 # Then build the plugin with MBELIB=<directory>/install. Needs cmake, a C
 # compiler and curl or wget.
@@ -15,8 +15,8 @@
 # A newer mbelib-neo: see "Updating mbelib-neo" in README.md.
 set -e
 
-VER=2.6.2
-SUM=1bfb475057ea4adc66e4ec31cd98795ba616622fad48750b14c3b97be573e1ed
+VER=2.6.4
+SUM=9aae0bb603ae84fcbc42745bb84967478e0257521bdc3d460793a463fc8ac229
 DIR=${1:-mbelib-neo-$VER}
 URL=https://github.com/arancormonk/mbelib-neo/releases/download/v$VER/mbelib-neo-$VER-source.tar.gz
 
