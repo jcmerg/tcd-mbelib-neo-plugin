@@ -56,27 +56,19 @@ See "Codec plugins" in [tcd/README.md](https://github.com/jcmerg/urfd-ng/blob/ma
 
 On a Raspberry Pi 4 (armhf) about 0.18 ms to encode and 0.04 ms to decode a 20 ms frame with the NEON routines (0.20 and 0.07 ms without, the frames encoded bit for bit the same), on a Pi 5 0.09 ms and 0.03 ms. Against a DVSI DV3003, frames go both ways: mbelib-neo frames decoded by the DV3003 and DV3003 frames decoded by mbelib-neo come out at the same level and envelope as the DV3003 on its own, for D-Star and DMR.
 
-Sound against a DV3003: PESQ (ITU-T P.862, narrowband, MOS from 1 to 4.5) against the original audio, mean over 5 clips (4 FM recordings, 1 speech clip, 8 kHz), each pair of encoder and decoder. DMR measured 2026-10-25 with mbelib-neo 2.6.2, D-Star 2026-10-27 with 2.6.2 and 2.6.4 (other clips, so the two tables do not compare with each other):
+Sound against a DV3003 (2026-10-27): PESQ (ITU-T P.862, narrowband, MOS from 1 to 4.5) against the original audio, mean over 5 clips (4 FM recordings, 1 speech clip, 8 kHz), each pair of encoder and decoder, with mbelib-neo 2.6.4 (plugin 1.0.1) and 2.6.2 (plugin 1.0.0) before it:
 
-| Encoder → decoder | DMR/YSF (2.6.2) |
-|---|---|
-| DV3003 → DV3003 | 2.66 |
-| DV3003 → mbelib-neo | 2.56 |
-| mbelib-neo → DV3003 | 2.64 |
-| mbelib-neo → mbelib-neo | 2.61 |
+| Encoder → decoder | DMR/YSF, 2.6.4 | D-Star, 2.6.4 | DMR/YSF, 2.6.2 | D-Star, 2.6.2 |
+|---|---|---|---|---|
+| DV3003 → DV3003 | 2.73 | 2.79 | 2.73 | 2.79 |
+| DV3003 → mbelib-neo | 2.73 | 2.64 | 2.69 | 2.60 |
+| mbelib-neo → DV3003 | 2.76 | 2.85 | 2.76 | 2.47 |
+| mbelib-neo → mbelib-neo | 2.69 | 2.70 | 2.68 | 2.69 |
 
-| Encoder → decoder | D-Star, 2.6.2 | D-Star, 2.6.4 |
-|---|---|---|
-| DV3003 → DV3003 | 2.79 | 2.79 |
-| DV3003 → mbelib-neo | 2.60 | 2.64 |
-| mbelib-neo → DV3003 | 2.47 | 2.85 |
-| mbelib-neo → mbelib-neo | 2.69 | 2.70 |
+With bit errors in the DV3003 frames (1 / 3 / 5 % of the bits flipped), decoded by the DV3003 and by mbelib-neo 2.6.4: DMR 2.69 / 2.55 / 2.31 against 2.65 / 2.53 / 2.33, D-Star 2.73 / 2.56 / 2.21 against 2.57 / 2.39 / 2.14.
 
-With bit errors in the DV3003 frames (1 / 3 / 5 % of the bits flipped), decoded by the DV3003 and by mbelib-neo: DMR 2.63 / 2.46 / 2.20 against 2.50 / 2.39 / 2.15 (2.6.2); D-Star 2.73 / 2.56 / 2.21 against 2.57 / 2.39 / 2.14 (2.6.4; 2.6.2: 2.53 / 2.33 / 2.01).
-
-- **DMR**: the encoder is as good as the DV3003 (what radios hear from tcd), the decoder about 0.1 MOS lower; audible at most in a direct A/B comparison.
-- **D-Star**: since mbelib-neo 2.6.4 (plugin 1.0.1) the encoder is as good as the DV3003; 2.6.2 made frames that the DV3003 plays as lost or silent. The decoder is about 0.15 lower. Where there is an AMBE stick, D-Star from radios still sounds a little better on it.
-- With bit errors mbelib-neo loses about as fast as the DV3003.
+- **DMR**: encoder and decoder as good as the DV3003, also with bit errors.
+- **D-Star**: the encoder as good as the DV3003 (what radios hear from tcd; 2.6.2 made frames that the DV3003 plays as lost or silent), the decoder about 0.15 lower, also with bit errors.
 - Five clips and PESQ are a guide, not a listening test: differences under about 0.1 say little.
 
 ## Files
