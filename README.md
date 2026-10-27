@@ -15,7 +15,7 @@ Needs a C/C++ compiler, `make`, `cmake` and `curl` or `wget` (Debian, Ubuntu, Ra
 ```bash
 git clone https://github.com/jcmerg/tcd-mbelib-neo-plugin.git
 cd tcd-mbelib-neo-plugin
-./build-mbelib-neo.sh        # downloads mbelib-neo 2.6.4 (checked against its SHA-256) and builds it here
+./build-mbelib-neo.sh        # downloads mbelib-neo 2.6.5 (checked against its SHA-256) and builds it here
 make
 sudo make install            # /usr/local/lib/tcd/mbelib_neo_codec.so
 ```
@@ -79,6 +79,7 @@ With bit errors in the DV3003 frames (1 / 3 / 5 % of the bits flipped), decoded 
 
 ## Versions
 
+- **1.0.2** (2026-10-28): mbelib-neo 2.6.5 (the encoder no longer voices hum or background noise in pauses at the lowest pitches).
 - **1.0.1** (2026-10-27): mbelib-neo 2.6.4 (decoder closer to DVSI's: lost frames, tones, D-Star bands); the plugin's version in tcd's log and monitor.
 - **1.0.0** (2026-10-25): tcd codec API 2, mbelib-neo 2.6.2.
 
