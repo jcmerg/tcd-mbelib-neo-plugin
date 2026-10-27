@@ -78,6 +78,11 @@ Mit Bitfehlern in den DV3003-Frames (1 / 3 / 5 % der Bits gekippt), dekodiert vo
 - `CodecPlugin.h`: eine Kopie der Plugin-Schnittstelle von tcd (`TCD_CODEC_API 2`, ab tcd 0.12.0: jede Aussendung beginnt mit zurückgesetztem Encoder und Decoder; ein älteres tcd braucht das Plugin vor dieser Änderung); `make TCD=/pfad/zu/urfd-ng/tcd` nimmt stattdessen die eines Klons
 - `build-mbelib-neo.sh`: holt und baut mbelib-neo
 
+## Versionen
+
+- **1.0.1** (27.10.2026): mbelib-neo 2.6.4 (Decoder näher am DVSI: verlorene Frames, Töne, D-Star-Bänder); die Version des Plugins im Log und Monitor von tcd.
+- **1.0.0** (25.10.2026): tcd-Codec-API 2, mbelib-neo 2.6.2.
+
 ## Lizenz
 
 GNU General Public License v3 oder später, siehe [LICENSE](LICENSE). mbelib-neo ist GPL-2.0-or-later mit ISC- und PFFFT-Teilen, siehe dessen Repository.
