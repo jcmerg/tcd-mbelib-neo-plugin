@@ -25,6 +25,8 @@ extern "C" {
 
 #include "CodecPlugin.h"
 
+#define PLUGIN_VERSION "1.0.1"
+
 // DMR AMBE interleave schedule, from DSD (dmr_const.h, ISC license)
 static const int rW[36] = { 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2 };
 static const int rX[36] = { 23, 10, 22, 9, 21, 8, 20, 7, 19, 6, 18, 5, 17, 4, 16, 3, 15, 2, 14, 1, 13, 0, 12, 10, 11, 9, 10, 8, 9, 7, 8, 6, 7, 5, 6, 4 };
@@ -154,7 +156,7 @@ static int Decode(void *state, const uint8_t *frame, int16_t *pcm)
 static const tcd_codec_plugin s_Plugin = {
 	TCD_CODEC_API,
 	"mbelib-neo",
-	"D-Star AMBE and DMR AMBE+2 from mbelib-neo " MBELIB_VERSION,
+	"plugin " PLUGIN_VERSION ": D-Star AMBE and DMR AMBE+2 from mbelib-neo " MBELIB_VERSION,
 	TCD_CODEC_DSTAR | TCD_CODEC_DMR,
 	nullptr,	// no options
 	Init,
