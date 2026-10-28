@@ -2,7 +2,7 @@
 
 [English](README.md) | [Deutsch](README.de.md)
 
-A codec plugin for **tcd**, the transcoder of [urfd-ng](https://github.com/jcmerg/urfd-ng): D-Star (AMBE 3600x2400) and DMR/YSF/NXDN (AMBE+2 3600x2450) in software, encoder and decoder, from [mbelib-neo](https://github.com/arancormonk/mbelib-neo). With it, tcd transcodes without DVSI hardware, or more modules than the AMBE sticks have channels.
+A codec plugin for **tcd**, the transcoder of [urfd-ng](https://github.com/jcmerg/urfd-ng): D-Star (AMBE 3600x2400) and DMR/YSF/NXDN (AMBE+2 3600x2450) in software, encoder and decoder, from [mbelib-neo](https://github.com/arancormonk/mbelib-neo). With it, tcd transcodes without DVSI hardware, or more modules than the AMBE sticks have channels. It also does P25 (IMBE 4400), as a choice next to tcd's own OP25 vocoder.
 
 ## Patent notice
 
@@ -49,6 +49,7 @@ CodecPlugin = /usr/local/lib/tcd/mbelib_neo_codec.so
 - **One stick**: the stick does D-Star, the plugin DMR/YSF.
 - **Two sticks**: the sticks do the first modules of `Modules`, the plugin the rest (DV3000 + DV3003 with `Modules = FSABC`: F and S in hardware, A, B and C in software).
 - `CodecDStar = mbelib-neo` / `CodecDMR = mbelib-neo` put a codec in software from the start even where a stick could do it; tcd's web dashboard switches between the sticks and the plugin at run time.
+- `CodecP25 = mbelib-neo` (tcd 0.14.0 and later) does P25 with the plugin instead of tcd's own OP25 vocoder; without it, or with an older tcd, P25 stays on OP25. The dashboard switches P25 at run time as well.
 
 See "Codec plugins" in [tcd/README.md](https://github.com/jcmerg/urfd-ng/blob/main/tcd/README.md#codec-plugins) for the details.
 
@@ -69,6 +70,7 @@ With bit errors in the DV3003 frames (1 / 3 / 5 % of the bits flipped), decoded 
 
 - **DMR**: encoder and decoder as good as the DV3003, also with bit errors.
 - **D-Star**: the encoder as good as the DV3003 or a little better (what radios hear from tcd), the decoder about 0.1 lower, also with bit errors.
+- **P25** (no DVSI part does IMBE, so against tcd's own OP25 vocoder, on the same clips): OP25 → OP25 2.55, mbelib-neo → mbelib-neo 2.66, OP25 → mbelib-neo 2.58, mbelib-neo → OP25 2.60; through tcd to DMR 2.25 against 2.31, to M17 2.30 against 2.31. A small gain, mostly from the encoder; OP25 stays tcd's default.
 - 19 clips and PESQ are a guide, not a listening test: differences under about 0.1 say little.
 
 ## Files
@@ -79,7 +81,7 @@ With bit errors in the DV3003 frames (1 / 3 / 5 % of the bits flipped), decoded 
 
 ## Versions
 
-- **1.0.2** (2026-10-28): mbelib-neo 2.6.5 (the encoder no longer voices hum or background noise in pauses at the lowest pitches).
+- **1.1.0** (2026-10-28): P25 IMBE 4400, encoder and decoder from mbelib-neo (`CodecP25 = mbelib-neo`, tcd 0.14.0 and later); mbelib-neo 2.6.5 (the encoder no longer voices hum or background noise in pauses at the lowest pitches).
 - **1.0.1** (2026-10-27): mbelib-neo 2.6.4 (decoder closer to DVSI's: lost frames, tones, D-Star bands); the plugin's version in tcd's log and monitor.
 - **1.0.0** (2026-10-25): tcd codec API 2, mbelib-neo 2.6.2.
 
