@@ -57,7 +57,7 @@ Einzelheiten unter „Codec-Plugins“ in [tcd/README.de.md](https://github.com/
 
 Auf einem Raspberry Pi 4 (armhf) etwa 0,18 ms zum Kodieren und 0,04 ms zum Dekodieren eines 20-ms-Frames mit den NEON-Routinen (0,20 und 0,07 ms ohne, die kodierten Frames Bit für Bit gleich), auf einem Pi 5 0,09 ms und 0,03 ms. Gegen einen DVSI DV3003 gehen die Frames in beide Richtungen: mbelib-neo-Frames, die der DV3003 dekodiert, und DV3003-Frames, die mbelib-neo dekodiert, kommen mit demselben Pegel und Hüllkurvenverlauf an wie beim DV3003 allein, für D-Star und DMR.
 
-Klang gegen einen DV3003 (28.10.2026, mbelib-neo 2.6.5, D-Star und DMR von Plugin 1.1.0): PESQ (ITU-T P.862, Schmalband, MOS von 1 bis 4,5) gegen das Original, Mittel über 19 Clips (18 FM-Mitschnitte, 1 Sprachclip, 8 kHz, je höchstens die ersten 100 s), jedes Paar aus Encoder und Decoder:
+Klang gegen einen DV3003 (28.10.2026, mbelib-neo 2.6.5, Plugin 1.0.2; 1.0.3 kodiert D-Star und DMR genauso): PESQ (ITU-T P.862, Schmalband, MOS von 1 bis 4,5) gegen das Original, Mittel über 19 Clips (18 FM-Mitschnitte, 1 Sprachclip, 8 kHz, je höchstens die ersten 100 s), jedes Paar aus Encoder und Decoder:
 
 | Encoder → Decoder | DMR/YSF | D-Star |
 |---|---|---|
@@ -81,7 +81,8 @@ Mit Bitfehlern in den DV3003-Frames (1 / 3 / 5 % der Bits gekippt), dekodiert vo
 
 ## Versionen
 
-- **1.1.0** (28.10.2026): P25 IMBE 4400, Encoder und Decoder aus mbelib-neo (`CodecP25 = mbelib-neo`, tcd 0.14.0 und neuer); mbelib-neo 2.6.5 (der Encoder kodiert Brummen und Hintergrundrauschen in Pausen bei den tiefsten Tonhöhen nicht mehr als stimmhaft).
+- **1.0.3** (28.10.2026): P25 IMBE 4400, Encoder und Decoder aus mbelib-neo (`CodecP25 = mbelib-neo`, tcd 0.14.0 und neuer); D-Star und DMR unverändert.
+- **1.0.2** (28.10.2026): mbelib-neo 2.6.5 (der Encoder kodiert Brummen und Hintergrundrauschen in Pausen bei den tiefsten Tonhöhen nicht mehr als stimmhaft).
 - **1.0.1** (27.10.2026): mbelib-neo 2.6.4 (Decoder näher am DVSI: verlorene Frames, Töne, D-Star-Bänder); die Version des Plugins im Log und Monitor von tcd.
 - **1.0.0** (25.10.2026): tcd-Codec-API 2, mbelib-neo 2.6.2.
 

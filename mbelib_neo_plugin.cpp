@@ -28,7 +28,7 @@ extern "C" {
 
 #include "CodecPlugin.h"
 
-#define PLUGIN_VERSION "1.1.0"
+#define PLUGIN_VERSION "1.0.3"
 
 // DMR AMBE interleave schedule, from DSD (dmr_const.h, ISC license)
 static const int rW[36] = { 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2 };

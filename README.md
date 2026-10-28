@@ -57,7 +57,7 @@ See "Codec plugins" in [tcd/README.md](https://github.com/jcmerg/urfd-ng/blob/ma
 
 On a Raspberry Pi 4 (armhf) about 0.18 ms to encode and 0.04 ms to decode a 20 ms frame with the NEON routines (0.20 and 0.07 ms without, the frames encoded bit for bit the same), on a Pi 5 0.09 ms and 0.03 ms. Against a DVSI DV3003, frames go both ways: mbelib-neo frames decoded by the DV3003 and DV3003 frames decoded by mbelib-neo come out at the same level and envelope as the DV3003 on its own, for D-Star and DMR.
 
-Sound against a DV3003 (2026-10-28, mbelib-neo 2.6.5, D-Star and DMR of plugin 1.1.0): PESQ (ITU-T P.862, narrowband, MOS from 1 to 4.5) against the original audio, mean over 19 clips (18 FM recordings, 1 speech clip, 8 kHz, at most the first 100 s of each), each pair of encoder and decoder:
+Sound against a DV3003 (2026-10-28, mbelib-neo 2.6.5, plugin 1.0.2; 1.0.3 codes D-Star and DMR the same): PESQ (ITU-T P.862, narrowband, MOS from 1 to 4.5) against the original audio, mean over 19 clips (18 FM recordings, 1 speech clip, 8 kHz, at most the first 100 s of each), each pair of encoder and decoder:
 
 | Encoder → decoder | DMR/YSF | D-Star |
 |---|---|---|
@@ -81,7 +81,8 @@ With bit errors in the DV3003 frames (1 / 3 / 5 % of the bits flipped), decoded 
 
 ## Versions
 
-- **1.1.0** (2026-10-28): P25 IMBE 4400, encoder and decoder from mbelib-neo (`CodecP25 = mbelib-neo`, tcd 0.14.0 and later); mbelib-neo 2.6.5 (the encoder no longer voices hum or background noise in pauses at the lowest pitches).
+- **1.0.3** (2026-10-28): P25 IMBE 4400, encoder and decoder from mbelib-neo (`CodecP25 = mbelib-neo`, tcd 0.14.0 and later); D-Star and DMR unchanged.
+- **1.0.2** (2026-10-28): mbelib-neo 2.6.5 (the encoder no longer voices hum or background noise in pauses at the lowest pitches).
 - **1.0.1** (2026-10-27): mbelib-neo 2.6.4 (decoder closer to DVSI's: lost frames, tones, D-Star bands); the plugin's version in tcd's log and monitor.
 - **1.0.0** (2026-10-25): tcd codec API 2, mbelib-neo 2.6.2.
 
