@@ -57,20 +57,20 @@ See "Codec plugins" in [tcd/README.md](https://github.com/jcmerg/urfd-ng/blob/ma
 
 On a Raspberry Pi 4 (armhf) about 0.18 ms to encode and 0.04 ms to decode a 20 ms frame with the NEON routines (0.20 and 0.07 ms without, the frames encoded bit for bit the same), on a Pi 5 0.09 ms and 0.03 ms. Against a DVSI DV3003, frames go both ways: mbelib-neo frames decoded by the DV3003 and DV3003 frames decoded by mbelib-neo come out at the same level and envelope as the DV3003 on its own, for D-Star and DMR.
 
-Sound against a DV3003 (2026-10-28, mbelib-neo 2.6.5, plugin 1.0.2): PESQ (ITU-T P.862, narrowband, MOS from 1 to 4.5) against the original audio, mean over 19 clips (18 FM recordings, 1 speech clip, 8 kHz), each pair of encoder and decoder:
+Sound against a DV3003 (2026-10-28, mbelib-neo 2.6.5, plugin 1.0.2): PESQ (ITU-T P.862, narrowband, MOS from 1 to 4.5) against the original audio, mean over 19 clips (18 FM recordings, 1 speech clip, 8 kHz, at most the first 100 s of each), each pair of encoder and decoder:
 
 | Encoder → decoder | DMR/YSF | D-Star |
 |---|---|---|
-| DV3003 → DV3003 | 2.57 | 2.53 |
-| DV3003 → mbelib-neo | 2.55 | 2.45 |
-| mbelib-neo → DV3003 | 2.54 | 2.64 |
-| mbelib-neo → mbelib-neo | 2.50 | 2.55 |
+| DV3003 → DV3003 | 2.52 | 2.48 |
+| DV3003 → mbelib-neo | 2.50 | 2.40 |
+| mbelib-neo → DV3003 | 2.49 | 2.59 |
+| mbelib-neo → mbelib-neo | 2.46 | 2.50 |
 
-With bit errors in the DV3003 frames (1 / 3 / 5 % of the bits flipped), decoded by the DV3003 and by mbelib-neo: DMR 2.52 / 2.42 / 2.21 against 2.50 / 2.37 / 2.20, D-Star 2.49 / 2.38 / 2.12 against 2.38 / 2.22 / 2.04.
+With bit errors in the DV3003 frames (1 / 3 / 5 % of the bits flipped), decoded by the DV3003 and by mbelib-neo: DMR 2.47 / 2.37 / 2.15 against 2.45 / 2.32 / 2.14, D-Star 2.44 / 2.33 / 2.07 against 2.33 / 2.17 / 1.99.
 
 - **DMR**: encoder and decoder as good as the DV3003, also with bit errors.
 - **D-Star**: the encoder as good as the DV3003 or a little better (what radios hear from tcd), the decoder about 0.1 lower, also with bit errors.
-- **P25** (no DVSI part does IMBE, so against tcd's own OP25 vocoder, on the same clips): OP25 → OP25 2.55, mbelib-neo → mbelib-neo 2.66, OP25 → mbelib-neo 2.58, mbelib-neo → OP25 2.60; through tcd to DMR 2.25 against 2.31, to M17 2.30 against 2.31. A small gain, mostly from the encoder; OP25 stays tcd's default.
+- **P25** (no DVSI part does IMBE, so against tcd's own OP25 vocoder, on the same clips): OP25 → OP25 2.49, mbelib-neo → mbelib-neo 2.61, OP25 → mbelib-neo 2.53, mbelib-neo → OP25 2.55; through tcd to DMR 2.20 against 2.26, to M17 2.25 against 2.26. A small gain, mostly from the encoder; OP25 stays tcd's default.
 - 19 clips and PESQ are a guide, not a listening test: differences under about 0.1 say little.
 
 ## Files

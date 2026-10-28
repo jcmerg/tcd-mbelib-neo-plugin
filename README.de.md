@@ -57,20 +57,20 @@ Einzelheiten unter „Codec-Plugins“ in [tcd/README.de.md](https://github.com/
 
 Auf einem Raspberry Pi 4 (armhf) etwa 0,18 ms zum Kodieren und 0,04 ms zum Dekodieren eines 20-ms-Frames mit den NEON-Routinen (0,20 und 0,07 ms ohne, die kodierten Frames Bit für Bit gleich), auf einem Pi 5 0,09 ms und 0,03 ms. Gegen einen DVSI DV3003 gehen die Frames in beide Richtungen: mbelib-neo-Frames, die der DV3003 dekodiert, und DV3003-Frames, die mbelib-neo dekodiert, kommen mit demselben Pegel und Hüllkurvenverlauf an wie beim DV3003 allein, für D-Star und DMR.
 
-Klang gegen einen DV3003 (28.10.2026, mbelib-neo 2.6.5, Plugin 1.0.2): PESQ (ITU-T P.862, Schmalband, MOS von 1 bis 4,5) gegen das Original, Mittel über 19 Clips (18 FM-Mitschnitte, 1 Sprachclip, 8 kHz), jedes Paar aus Encoder und Decoder:
+Klang gegen einen DV3003 (28.10.2026, mbelib-neo 2.6.5, Plugin 1.0.2): PESQ (ITU-T P.862, Schmalband, MOS von 1 bis 4,5) gegen das Original, Mittel über 19 Clips (18 FM-Mitschnitte, 1 Sprachclip, 8 kHz, je höchstens die ersten 100 s), jedes Paar aus Encoder und Decoder:
 
 | Encoder → Decoder | DMR/YSF | D-Star |
 |---|---|---|
-| DV3003 → DV3003 | 2,57 | 2,53 |
-| DV3003 → mbelib-neo | 2,55 | 2,45 |
-| mbelib-neo → DV3003 | 2,54 | 2,64 |
-| mbelib-neo → mbelib-neo | 2,50 | 2,55 |
+| DV3003 → DV3003 | 2,52 | 2,48 |
+| DV3003 → mbelib-neo | 2,50 | 2,40 |
+| mbelib-neo → DV3003 | 2,49 | 2,59 |
+| mbelib-neo → mbelib-neo | 2,46 | 2,50 |
 
-Mit Bitfehlern in den DV3003-Frames (1 / 3 / 5 % der Bits gekippt), dekodiert vom DV3003 und von mbelib-neo: DMR 2,52 / 2,42 / 2,21 gegen 2,50 / 2,37 / 2,20, D-Star 2,49 / 2,38 / 2,12 gegen 2,38 / 2,22 / 2,04.
+Mit Bitfehlern in den DV3003-Frames (1 / 3 / 5 % der Bits gekippt), dekodiert vom DV3003 und von mbelib-neo: DMR 2,47 / 2,37 / 2,15 gegen 2,45 / 2,32 / 2,14, D-Star 2,44 / 2,33 / 2,07 gegen 2,33 / 2,17 / 1,99.
 
 - **DMR**: Encoder und Decoder so gut wie der DV3003, auch mit Bitfehlern.
 - **D-Star**: Der Encoder so gut wie der DV3003 oder etwas besser (das hören die Funkgeräte von tcd), der Decoder etwa 0,1 schlechter, auch mit Bitfehlern.
-- **P25** (kein DVSI-Baustein kann IMBE, deshalb gegen den eigenen OP25-Vocoder von tcd, auf denselben Clips): OP25 → OP25 2,55, mbelib-neo → mbelib-neo 2,66, OP25 → mbelib-neo 2,58, mbelib-neo → OP25 2,60; über tcd nach DMR 2,25 gegen 2,31, nach M17 2,30 gegen 2,31. Ein kleiner Gewinn, vor allem vom Encoder; OP25 bleibt der Standard von tcd.
+- **P25** (kein DVSI-Baustein kann IMBE, deshalb gegen den eigenen OP25-Vocoder von tcd, auf denselben Clips): OP25 → OP25 2,49, mbelib-neo → mbelib-neo 2,61, OP25 → mbelib-neo 2,53, mbelib-neo → OP25 2,55; über tcd nach DMR 2,20 gegen 2,26, nach M17 2,25 gegen 2,26. Ein kleiner Gewinn, vor allem vom Encoder; OP25 bleibt der Standard von tcd.
 - 19 Clips und PESQ sind ein Anhaltspunkt, kein Hörtest: Unterschiede unter etwa 0,1 sagen wenig.
 
 ## Dateien
