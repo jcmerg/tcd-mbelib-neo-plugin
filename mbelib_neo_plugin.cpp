@@ -28,7 +28,7 @@ extern "C" {
 
 #include "CodecPlugin.h"
 
-#define PLUGIN_VERSION "1.0.3"
+#define PLUGIN_VERSION "1.1.0"
 
 // DMR AMBE interleave schedule, from DSD (dmr_const.h, ISC license)
 static const int rW[36] = { 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2 };
@@ -162,9 +162,25 @@ static int Encode(void *state, const int16_t *pcm, uint8_t *frame)
 	return 0;
 }
 
-static int Decode(void *state, const uint8_t *frame, int16_t *pcm)
+static void Info(const mbe_process_result &result, tcd_frame_info *info)
+{
+	info->errors = result.total_errors;
+	info->flags = 0;
+	if (result.flags & MBE_PROCESS_FLAG_REPEAT)
+		info->flags |= TCD_FRAME_REPEAT;
+	if (result.flags & MBE_PROCESS_FLAG_MUTE)
+		info->flags |= TCD_FRAME_MUTE;
+	if (result.flags & MBE_PROCESS_FLAG_TONE)
+		info->flags |= TCD_FRAME_TONE;
+	if (result.flags & MBE_PROCESS_FLAG_SILENCE)
+		info->flags |= TCD_FRAME_SILENCE;
+}
+
+// decode, and say how the frame came out
+static int DecodeInfo(void *state, const uint8_t *frame, int16_t *pcm, tcd_frame_info *info)
 {
 	auto *st = static_cast<SStream *>(state);
+	*info = tcd_frame_info{ 0, 0 };
 	char ambe_d[49] = {}, fr[4][24];
 	mbe_process_result result;
 	mbe_initProcessResult(&result);
@@ -186,7 +202,26 @@ static int Decode(void *state, const uint8_t *frame, int16_t *pcm)
 		DmrToPlanes(frame, fr);
 		r = mbe_processAmbe3600x2450Frame(pcm, &result, fr, ambe_d, &st->decCur, &st->decPrev, &st->decEnh);
 	}
-	return r < 0 ? 1 : 0;
+	if (r < 0)
+		return 1;
+	Info(result, info);
+	return 0;
+}
+
+static int Decode(void *state, const uint8_t *frame, int16_t *pcm)
+{
+	tcd_frame_info info;
+	return DecodeInfo(state, frame, pcm, &info);
+}
+
+// the frames tcd has: 9 bytes for D-Star and DMR, 11 for P25, 20 ms each
+static int FrameFormat(uint32_t codec, uint32_t *bytes, uint32_t *samples)
+{
+	if (codec != TCD_CODEC_DSTAR && codec != TCD_CODEC_DMR && codec != TCD_CODEC_P25)
+		return 1;
+	*bytes = codec == TCD_CODEC_P25 ? 11 : 9;
+	*samples = 160;
+	return 0;
 }
 
 static const tcd_codec_plugin s_Plugin = {
@@ -203,6 +238,8 @@ static const tcd_codec_plugin s_Plugin = {
 	Decode,
 	Start,
 	nullptr,	// nothing to do at the end: the next start resets
+	DecodeInfo,
+	FrameFormat,
 };
 
 extern "C" const tcd_codec_plugin *tcd_codec_plugin(void)
