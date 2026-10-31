@@ -180,6 +180,7 @@ static void Info(const mbe_process_result &result, tcd_frame_info *info)
 static int DecodeInfo(void *state, const uint8_t *frame, int16_t *pcm, tcd_frame_info *info)
 {
 	auto *st = static_cast<SStream *>(state);
+	*info = tcd_frame_info{ 0, 0 };
 	char ambe_d[49] = {}, fr[4][24];
 	mbe_process_result result;
 	mbe_initProcessResult(&result);
