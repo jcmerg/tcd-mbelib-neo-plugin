@@ -76,11 +76,12 @@ With bit errors in the DV3003 frames (1 / 3 / 5 % of the bits flipped), decoded 
 ## Files
 
 - `mbelib_neo_plugin.cpp`: the plugin
-- `CodecPlugin.h`: a copy of tcd's plugin interface (`TCD_CODEC_API 2`, tcd 0.12.0 and later: every transmission begins with a reset encoder and decoder; an older tcd needs the plugin before this change); `make TCD=/path/to/urfd-ng/tcd` uses the one of a checkout instead
+- `CodecPlugin.h`: a copy of tcd's plugin interface (`TCD_CODEC_API 3`, tcd 0.15.0 and later: the decoder also reports how each frame came out, for tcd's monitor; tcd 0.12.0 to 0.14.x need plugin 1.0.3); `make TCD=/path/to/urfd-ng/tcd` uses the one of a checkout instead
 - `build-mbelib-neo.sh`: fetches and builds mbelib-neo
 
 ## Versions
 
+- **1.1.0** (2026-10-31): tcd codec API 3 (tcd 0.15.0 and later): the decoder reports the corrected bit errors and the repeated, muted, tone and silence frames, which tcd's monitor counts; the frame formats are declared. Encoding and decoding unchanged.
 - **1.0.3** (2026-10-28): P25 IMBE 4400, encoder and decoder from mbelib-neo (`CodecP25 = mbelib-neo`, tcd 0.14.0 and later); D-Star and DMR unchanged.
 - **1.0.2** (2026-10-28): mbelib-neo 2.6.5 (the encoder no longer voices hum or background noise in pauses at the lowest pitches).
 - **1.0.1** (2026-10-27): mbelib-neo 2.6.4 (decoder closer to DVSI's: lost frames, tones, D-Star bands); the plugin's version in tcd's log and monitor.
