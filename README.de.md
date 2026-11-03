@@ -10,15 +10,18 @@ Ein Codec-Plugin für **tcd**, den Transcoder von [urfd-ng](https://github.com/j
 
 ## Bauen
 
-Braucht einen C/C++-Compiler, `make`, `cmake` und `curl` oder `wget` (Debian, Ubuntu, Raspberry Pi OS; x86_64, arm64, armhf).
+Braucht einen C/C++-Compiler, `make`, `cmake` (3.13 oder neuer), `tar` und `curl` oder `wget` (Debian, Ubuntu, Raspberry Pi OS; x86_64, arm64, armhf; auch macOS baut es).
 
 ```bash
 git clone https://github.com/jcmerg/tcd-mbelib-neo-plugin.git
 cd tcd-mbelib-neo-plugin
 ./build-mbelib-neo.sh        # lädt mbelib-neo 2.6.5 (gegen seine SHA-256 geprüft) und baut es hier
 make
+make check                   # lädt das Plugin wie tcd und lässt jeden Codec einmal laufen
 sudo make install            # /usr/local/lib/tcd/mbelib_neo_codec.so
 ```
+
+`CXXFLAGS`, `CPPFLAGS` und `LDFLAGS` aus der Umgebung werden übernommen (Standard ist `-O2`), `make WERROR=1` macht Warnungen zu Fehlern, `make DESTDIR=… install` installiert in ein Staging-Verzeichnis. Das Plugin exportiert nur `tcd_codec_plugin`; die Symbole von mbelib-neo bleiben darin.
 
 Oder dieses Repository nach `tcd/plugins/mbelib-neo` des urfd-ng-Klons klonen: Das tcd-Docker-Image und `tcd/build.sh` bauen es mit tcd und installieren es, `setup.sh update` holt es auf den neuen Stand (siehe „Codec-Plugins“ und „tcd in Docker“ in [tcd/README.de.md](https://github.com/jcmerg/urfd-ng/blob/main/tcd/README.de.md#codec-plugins)).
 
@@ -50,6 +53,7 @@ CodecPlugin = /usr/local/lib/tcd/mbelib_neo_codec.so
 - **Zwei Sticks**: Die Sticks übernehmen die ersten Module aus `Modules`, das Plugin den Rest (DV3000 + DV3003 mit `Modules = FSABC`: F und S in Hardware, A, B und C in Software).
 - `CodecDStar = mbelib-neo` / `CodecDMR = mbelib-neo` legen einen Codec von Anfang an in Software, auch wo ein Stick ihn könnte; das Web-Dashboard von tcd schaltet zur Laufzeit zwischen Sticks und Plugin um.
 - `CodecP25 = mbelib-neo` (tcd 0.14.0 und neuer) macht P25 mit dem Plugin statt mit dem eigenen OP25-Vocoder von tcd; ohne die Zeile oder mit einem älteren tcd bleibt P25 bei OP25. Das Dashboard schaltet auch P25 zur Laufzeit um.
+- Der Monitor von tcd zählt Bitfehler nur für D-Star und DMR: tcd gibt P25 als die 88 IMBE-Parameterbits weiter, ohne ihre FEC, deshalb hat das Plugin dort keine Fehler zu zählen (immer 0), und ein P25-Frame wird nur wiederholt, nach vier Wiederholungen in Folge stummgeschaltet, wenn seine Tonhöhe unbrauchbar ist.
 
 Einzelheiten unter „Codec-Plugins“ in [tcd/README.de.md](https://github.com/jcmerg/urfd-ng/blob/main/tcd/README.de.md#codec-plugins).
 
@@ -57,7 +61,7 @@ Einzelheiten unter „Codec-Plugins“ in [tcd/README.de.md](https://github.com/
 
 Auf einem Raspberry Pi 4 (armhf) etwa 0,18 ms zum Kodieren und 0,04 ms zum Dekodieren eines 20-ms-Frames mit den NEON-Routinen (0,20 und 0,07 ms ohne, die kodierten Frames Bit für Bit gleich), auf einem Pi 5 0,09 ms und 0,03 ms. Gegen einen DVSI DV3003 gehen die Frames in beide Richtungen: mbelib-neo-Frames, die der DV3003 dekodiert, und DV3003-Frames, die mbelib-neo dekodiert, kommen mit demselben Pegel und Hüllkurvenverlauf an wie beim DV3003 allein, für D-Star und DMR.
 
-Klang gegen einen DV3003 (28.10.2026, mbelib-neo 2.6.5, Plugin 1.0.2; 1.0.3 kodiert D-Star und DMR genauso): PESQ (ITU-T P.862, Schmalband, MOS von 1 bis 4,5) gegen das Original, Mittel über 19 Clips (18 FM-Mitschnitte, 1 Sprachclip, 8 kHz, je höchstens die ersten 100 s), jedes Paar aus Encoder und Decoder:
+Klang gegen einen DV3003 (28.10.2026, mbelib-neo 2.6.5, Plugin 1.0.2; 1.0.3 bis 1.1.1 kodieren D-Star und DMR genauso): PESQ (ITU-T P.862, Schmalband, MOS von 1 bis 4,5) gegen das Original, Mittel über 19 Clips (18 FM-Mitschnitte, 1 Sprachclip, 8 kHz, je höchstens die ersten 100 s), jedes Paar aus Encoder und Decoder:
 
 | Encoder → Decoder | DMR/YSF | D-Star |
 |---|---|---|
@@ -76,11 +80,13 @@ Mit Bitfehlern in den DV3003-Frames (1 / 3 / 5 % der Bits gekippt), dekodiert vo
 ## Dateien
 
 - `mbelib_neo_plugin.cpp`: das Plugin
-- `CodecPlugin.h`: eine Kopie der Plugin-Schnittstelle von tcd (`TCD_CODEC_API 3`, ab tcd 0.15.0: Der Decoder meldet auch, wie jeder Frame ausgefallen ist, für den Monitor von tcd; tcd 0.12.0 bis 0.14.x brauchen Plugin 1.0.3); `make TCD=/pfad/zu/urfd-ng/tcd` nimmt stattdessen die eines Klons
+- `CodecPlugin.h`: eine Kopie der Plugin-Schnittstelle von tcd, gleich der von tcd gehalten (`make check` vergleicht sie in `tcd/plugins/`) (`TCD_CODEC_API 3`, ab tcd 0.15.0: Der Decoder meldet auch, wie jeder Frame ausgefallen ist, für den Monitor von tcd; tcd 0.12.0 bis 0.14.x brauchen Plugin 1.0.3); `make TCD=/pfad/zu/urfd-ng/tcd` nimmt stattdessen die eines Klons
 - `build-mbelib-neo.sh`: holt und baut mbelib-neo
+- `plugin.map`: die Exportliste (Linux), `tests/smoke.cpp`: der Test von `make check`
 
 ## Versionen
 
+- **1.1.1** (03.11.2026): Korrekturen aus einem Review; Kodieren und Dekodieren unverändert (Bit für Bit dieselben Frames und dasselbe PCM wie 1.1.0). Nur `tcd_codec_plugin` wird exportiert, aus `open` kommt keine Exception, ein Frame ist nur Nullen, wenn das Kodieren scheitert. `make check`, CI, `-Wall -Wextra`, `CXXFLAGS`/`LDFLAGS` aus der Umgebung, `WERROR=1`, `DESTDIR`. `build-mbelib-neo.sh` auch auf macOS, es prüft vorab seine Werkzeuge und baut neu, wenn `libmbe-neo.a` fehlt. Die P25-Statistik erklärt. `CodecPlugin.h` wie in tcd 0.16.0.
 - **1.1.0** (31.10.2026): tcd-Codec-API 3 (ab tcd 0.15.0): Der Decoder meldet die korrigierten Bitfehler sowie wiederholte, stummgeschaltete, Ton- und Stille-Frames, die der Monitor von tcd zählt; die Frame-Formate werden angegeben. Kodieren und Dekodieren unverändert.
 - **1.0.3** (28.10.2026): P25 IMBE 4400, Encoder und Decoder aus mbelib-neo (`CodecP25 = mbelib-neo`, tcd 0.14.0 und neuer); D-Star und DMR unverändert.
 - **1.0.2** (28.10.2026): mbelib-neo 2.6.5 (der Encoder kodiert Brummen und Hintergrundrauschen in Pausen bei den tiefsten Tonhöhen nicht mehr als stimmhaft).

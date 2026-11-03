@@ -1,3 +1,6 @@
 mbelib-neo-*/
 *.o
 *.so
+/tests/smoke
+*.d
+*.dSYM/

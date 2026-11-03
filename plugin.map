@@ -1,0 +1,4 @@
+{
+	global: tcd_codec_plugin;
+	local: *;
+};

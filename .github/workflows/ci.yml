@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# builds mbelib-neo and the plugin with warnings as errors, runs make check
+# (the plugin loaded as tcd does it), on Linux with gcc also under ASan, and
+# compares CodecPlugin.h with tcd's in urfd-ng
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, cxx: g++, asan: true }
+          - { os: ubuntu-latest, cxx: clang++ }
+          - { os: macos-latest, cxx: clang++ }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: mbelib-neo-2.6.5/install
+          key: mbelib-neo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('build-mbelib-neo.sh') }}
+
+      - name: mbelib-neo
+        run: ./build-mbelib-neo.sh
+
+      - name: make check
+        run: make WERROR=1 CXX=${{ matrix.cxx }} check
+
+      - name: only tcd_codec_plugin is exported
+        if: runner.os == 'Linux'
+        run: |
+          nm -D --defined-only mbelib_neo_codec.so
+          [ "$(nm -D --defined-only mbelib_neo_codec.so | awk '{ print $3 }')" = tcd_codec_plugin ]
+
+      - name: make check under ASan
+        if: matrix.asan
+        run: |
+          make clean
+          make WERROR=1 CXX=${{ matrix.cxx }} CXXFLAGS="-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer" LDFLAGS="-fsanitize=address,undefined" check
+
+  header:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: CodecPlugin.h is tcd's
+        run: |
+          curl -fsSL -o /tmp/CodecPlugin.h https://raw.githubusercontent.com/jcmerg/urfd-ng/main/tcd/CodecPlugin.h
+          diff -u /tmp/CodecPlugin.h CodecPlugin.h
