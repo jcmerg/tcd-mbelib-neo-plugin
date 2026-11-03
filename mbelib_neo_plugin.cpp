@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
 // mbelib-neo -- a tcd codec plugin: D-Star AMBE, DMR AMBE+2 and P25 IMBE from mbelib-neo
 // (https://github.com/arancormonk/mbelib-neo), encoder and decoder in plain C,
 // on any host
@@ -10,7 +12,9 @@
 //   DMR     the 72 bits of an AMBE+2 frame in air order, MSB first, which
 //           DSD's dibit schedule (rW/rX/rY/rZ) maps to mbelib's 4x24 planes
 //   P25     the 88 IMBE 4400 parameter bits u0..u7, MSB first in 11 bytes
-//           (as OP25's encode_4400, tcd's own P25 vocoder)
+//           (as OP25's encode_4400, tcd's own P25 vocoder); the FEC is not
+//           in them, so decode_info reports no bit errors for P25, and it
+//           mutes only after repeats of frames with an unusable pitch (b0)
 //
 // tcd.ini:  CodecPlugin = /usr/local/lib/tcd/mbelib_neo_codec.so
 //           CodecDStar = mbelib-neo      (to use it for D-Star although a device could)
@@ -21,6 +25,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <new>
 
 extern "C" {
 #include <mbelib-neo/mbelib.h>
@@ -28,7 +33,7 @@ extern "C" {
 
 #include "CodecPlugin.h"
 
-#define PLUGIN_VERSION "1.1.0"
+#define PLUGIN_VERSION "1.1.1"
 
 // DMR AMBE interleave schedule, from DSD (dmr_const.h, ISC license)
 static const int rW[36] = { 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2 };
@@ -91,7 +96,9 @@ static void *Open(uint32_t codec)
 {
 	if (codec != TCD_CODEC_DSTAR && codec != TCD_CODEC_DMR && codec != TCD_CODEC_P25)
 		return nullptr;
-	auto *st = new SStream;
+	auto *st = new (std::nothrow) SStream;	// no exception through tcd's C interface
+	if (!st)
+		return nullptr;
 	st->codec = codec;
 	if (codec == TCD_CODEC_DSTAR)
 		st->enc2400 = mbe_ambe2400EncoderAlloc();
@@ -130,25 +137,32 @@ static void Close(void *state)
 	delete st;
 }
 
+// on an error the frame is all zero bytes
 static int Encode(void *state, const int16_t *pcm, uint8_t *frame)
 {
 	auto *st = static_cast<SStream *>(state);
-	char ambe_d[49] = {}, fr[4][24];
 	if (st->codec == TCD_CODEC_P25)
 	{
 		char imbe_d[88] = {};
+		memset(frame, 0, 11);
 		if (mbe_encodeImbe4400ParmsShort(st->encImbe, pcm, imbe_d, &st->encCur, &st->encPrev) < 0)
 			return 1;
 		mbe_moveMbeParms(&st->encCur, &st->encPrev);
 		BitsToBytes(imbe_d, 88, frame);
+		return 0;
 	}
-	else if (st->codec == TCD_CODEC_DSTAR)
+	char ambe_d[49] = {}, fr[4][24];
+	memset(frame, 0, 9);
+	if (st->codec == TCD_CODEC_DSTAR)
 	{
 		if (mbe_encodeAmbe2400ParmsShort(st->enc2400, pcm, ambe_d, &st->encCur, &st->encPrev) < 0)
 			return 1;
 		mbe_moveMbeParms(&st->encCur, &st->encPrev);
 		if (mbe_encodeAmbe3600x2400Frame(ambe_d, fr) < 0 || mbe_encodeDStarDVData(fr, frame) < 0)
+		{
+			memset(frame, 0, 9);
 			return 1;
+		}
 	}
 	else
 	{
@@ -181,26 +195,30 @@ static int DecodeInfo(void *state, const uint8_t *frame, int16_t *pcm, tcd_frame
 {
 	auto *st = static_cast<SStream *>(state);
 	*info = tcd_frame_info{ 0, 0 };
-	char ambe_d[49] = {}, fr[4][24];
 	mbe_process_result result;
 	mbe_initProcessResult(&result);
 	int r;
 	if (st->codec == TCD_CODEC_P25)
 	{
+		// the parameter bits only, without their FEC: no bit errors to count
 		char imbe_d[88];
 		BytesToBits(frame, 88, imbe_d);
 		r = mbe_processImbe4400Data(pcm, &result, imbe_d, &st->decCur, &st->decPrev, &st->decEnh);
 	}
-	else if (st->codec == TCD_CODEC_DSTAR)
-	{
-		if (mbe_decodeDStarDVData(frame, fr) < 0)
-			return 1;
-		r = mbe_processAmbe3600x2400Frame(pcm, &result, fr, ambe_d, &st->decCur, &st->decPrev, &st->decEnh);
-	}
 	else
 	{
-		DmrToPlanes(frame, fr);
-		r = mbe_processAmbe3600x2450Frame(pcm, &result, fr, ambe_d, &st->decCur, &st->decPrev, &st->decEnh);
+		char ambe_d[49] = {}, fr[4][24];
+		if (st->codec == TCD_CODEC_DSTAR)
+		{
+			if (mbe_decodeDStarDVData(frame, fr) < 0)
+				return 1;
+			r = mbe_processAmbe3600x2400Frame(pcm, &result, fr, ambe_d, &st->decCur, &st->decPrev, &st->decEnh);
+		}
+		else
+		{
+			DmrToPlanes(frame, fr);
+			r = mbe_processAmbe3600x2450Frame(pcm, &result, fr, ambe_d, &st->decCur, &st->decPrev, &st->decEnh);
+		}
 	}
 	if (r < 0)
 		return 1;
@@ -242,7 +260,8 @@ static const tcd_codec_plugin s_Plugin = {
 	FrameFormat,
 };
 
-extern "C" const tcd_codec_plugin *tcd_codec_plugin(void)
+// the plugin's only exported symbol (-fvisibility=hidden and the export list in the Makefile)
+extern "C" __attribute__((visibility("default"))) const tcd_codec_plugin *tcd_codec_plugin(void)
 {
 	return &s_Plugin;
 }
