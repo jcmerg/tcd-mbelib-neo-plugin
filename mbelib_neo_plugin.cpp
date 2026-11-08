@@ -242,8 +242,10 @@ static int FrameFormat(uint32_t codec, uint32_t *bytes, uint32_t *samples)
 	return 0;
 }
 
+// API 3: tcd 0.15.0 and later load it; API 4 would add transcode only, which
+// this plugin does not have, and keep older tcd versions from loading it
 static const tcd_codec_plugin s_Plugin = {
-	TCD_CODEC_API,
+	3,
 	"mbelib-neo",
 	"plugin " PLUGIN_VERSION ": D-Star AMBE, DMR AMBE+2 and P25 IMBE from mbelib-neo " MBELIB_VERSION,
 	TCD_CODEC_DSTAR | TCD_CODEC_DMR | TCD_CODEC_P25,
@@ -258,6 +260,7 @@ static const tcd_codec_plugin s_Plugin = {
 	nullptr,	// nothing to do at the end: the next start resets
 	DecodeInfo,
 	FrameFormat,
+	nullptr,	// no transcode (API 4)
 };
 
 // the plugin's only exported symbol (-fvisibility=hidden and the export list in the Makefile)

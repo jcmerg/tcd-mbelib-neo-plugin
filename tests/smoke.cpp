@@ -132,7 +132,7 @@ int main(int argc, char **argv)
 	// mbelib-neo's own symbols stay inside the plugin
 	Check(!dlsym(so, "mbe_ambe2400EncoderAlloc") && !dlsym(so, "mbe_initMbeParms"), "mbelib-neo's symbols are exported", "plugin");
 
-	Check(p->api == TCD_CODEC_API, "api", "plugin");
+	Check(p->api >= TCD_CODEC_API_MIN && p->api <= TCD_CODEC_API, "api", "plugin");
 	Check(p->name && std::strcmp(p->name, "mbelib-neo") == 0, "name", "plugin");
 	Check(p->codecs == (TCD_CODEC_DSTAR | TCD_CODEC_DMR | TCD_CODEC_P25), "codecs", "plugin");
 	Check(p->init && p->open && p->close && p->encode && p->decode, "a required function is NULL", "plugin");

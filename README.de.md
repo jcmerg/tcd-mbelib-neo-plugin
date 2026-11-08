@@ -80,13 +80,13 @@ Mit Bitfehlern in den DV3003-Frames (1 / 3 / 5 % der Bits gekippt), dekodiert vo
 ## Dateien
 
 - `mbelib_neo_plugin.cpp`: das Plugin
-- `CodecPlugin.h`: eine Kopie der Plugin-Schnittstelle von tcd, gleich der von tcd gehalten (`make check` vergleicht sie in `tcd/plugins/`) (`TCD_CODEC_API 3`, ab tcd 0.15.0: Der Decoder meldet auch, wie jeder Frame ausgefallen ist, für den Monitor von tcd; tcd 0.12.0 bis 0.14.x brauchen Plugin 1.0.3); `make TCD=/pfad/zu/urfd-ng/tcd` nimmt stattdessen die eines Klons
+- `CodecPlugin.h`: eine Kopie der Plugin-Schnittstelle von tcd, gleich der von tcd gehalten (`make check` vergleicht sie in `tcd/plugins/`; der Header ist API 4, das Plugin meldet API 3, da es kein `transcode` hat) (`TCD_CODEC_API 3`, ab tcd 0.15.0: Der Decoder meldet auch, wie jeder Frame ausgefallen ist, für den Monitor von tcd; tcd 0.12.0 bis 0.14.x brauchen Plugin 1.0.3); `make TCD=/pfad/zu/urfd-ng/tcd` nimmt stattdessen die eines Klons
 - `build-mbelib-neo.sh`: holt und baut mbelib-neo
 - `plugin.map`: die Exportliste (Linux), `tests/smoke.cpp`: der Test von `make check`
 
 ## Versionen
 
-- **1.1.2** (08.11.2026): mbelib-neo 2.6.7. Sein Decoder kommt näher an den von DVSI: die stimmhafte Phase, wie DVSI sie regeneriert (die Tonhöhe wechselt 16 Samples nach der Rahmenmitte, ein stimmhafter Einsatz startet die Phase neu), die Stimmhaftigkeit von DMR (Rate 33), wie DVSI sie liest, und DMR- und P25-Rahmen werden nicht mehr leiser skaliert, wo DVSI es nicht tut (bisher bis zu 2,95 dB leiser bei DMR, 1,05 dB bei P25). Die Klangmessungen unten sind noch die von 2.6.5.
+- **1.1.2** (08.11.2026): mbelib-neo 2.6.7. Sein Decoder kommt näher an den von DVSI: die stimmhafte Phase, wie DVSI sie regeneriert (die Tonhöhe wechselt 16 Samples nach der Rahmenmitte, ein stimmhafter Einsatz startet die Phase neu), die Stimmhaftigkeit von DMR (Rate 33), wie DVSI sie liest, und DMR- und P25-Rahmen werden nicht mehr leiser skaliert, wo DVSI es nicht tut (bisher bis zu 2,95 dB leiser bei DMR, 1,05 dB bei P25). Die Klangmessungen unten sind noch die von 2.6.5. `CodecPlugin.h` wie in tcd 0.20.0 (API 4), das Plugin bleibt API 3.
 - **1.1.1** (03.11.2026): Korrekturen aus einem Review; Kodieren und Dekodieren unverändert (Bit für Bit dieselben Frames und dasselbe PCM wie 1.1.0). Nur `tcd_codec_plugin` wird exportiert, aus `open` kommt keine Exception, ein Frame ist nur Nullen, wenn das Kodieren scheitert. `make check`, CI, `-Wall -Wextra`, `CXXFLAGS`/`LDFLAGS` aus der Umgebung, `WERROR=1`, `DESTDIR`. `build-mbelib-neo.sh` auch auf macOS, es prüft vorab seine Werkzeuge und baut neu, wenn `libmbe-neo.a` fehlt. Die P25-Statistik erklärt. `CodecPlugin.h` wie in tcd 0.16.0.
 - **1.1.0** (31.10.2026): tcd-Codec-API 3 (ab tcd 0.15.0): Der Decoder meldet die korrigierten Bitfehler sowie wiederholte, stummgeschaltete, Ton- und Stille-Frames, die der Monitor von tcd zählt; die Frame-Formate werden angegeben. Kodieren und Dekodieren unverändert.
 - **1.0.3** (28.10.2026): P25 IMBE 4400, Encoder und Decoder aus mbelib-neo (`CodecP25 = mbelib-neo`, tcd 0.14.0 und neuer); D-Star und DMR unverändert.
