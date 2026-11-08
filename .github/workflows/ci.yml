@@ -25,7 +25,7 @@ jobs:
 
       - uses: actions/cache@v4
         with:
-          path: mbelib-neo-2.6.5/install
+          path: mbelib-neo-2.6.7/install
           key: mbelib-neo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('build-mbelib-neo.sh') }}
 
       - name: mbelib-neo

@@ -1,10 +1,10 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Builds mbelib-neo 2.6.5 (its release source archive, with PFFFT in it, no
+# Builds mbelib-neo 2.6.7 (its release source archive, with PFFFT in it, no
 # download during the build) for the mbelib-neo codec plugin.
 #
-#   ./build-mbelib-neo.sh [<directory>]     (default: ./mbelib-neo-2.6.5)
+#   ./build-mbelib-neo.sh [<directory>]     (default: ./mbelib-neo-2.6.7)
 #
 # Then build the plugin with MBELIB=<directory>/install. Needs cmake 3.13 or
 # later, a C compiler, tar and curl or wget, and sha256sum (Linux) or shasum
@@ -18,8 +18,8 @@
 # A newer mbelib-neo: see "Updating mbelib-neo" in README.md.
 set -e
 
-VER=2.6.5
-SUM=3df5ee1c7126a150357deca9d652efaec36237e312fc097cc00ef0327b758b87
+VER=2.6.7
+SUM=0c2b3ad2ea7232b21670461ef617a27028d96ddaf14d02073aa721c827c8f5a8
 DIR=${1:-mbelib-neo-$VER}
 URL=https://github.com/arancormonk/mbelib-neo/releases/download/v$VER/mbelib-neo-$VER-source.tar.gz
 

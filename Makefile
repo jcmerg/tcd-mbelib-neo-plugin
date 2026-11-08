@@ -2,7 +2,7 @@
 #
 # mbelib-neo, a codec plugin for tcd (urfd-ng)
 #
-#   make                      (downloads and builds mbelib-neo 2.6.5 in ./mbelib-neo-2.6.5 the first time)
+#   make                      (downloads and builds mbelib-neo 2.6.7 in ./mbelib-neo-2.6.7 the first time)
 #   make check                (loads the plugin and runs each codec, see tests/smoke.cpp)
 #   sudo make install         (to /usr/local/lib/tcd/)
 # tcd.ini then loads it:
@@ -16,7 +16,7 @@
 
 # CodecPlugin.h: the copy here, or TCD=/path/to/urfd-ng/tcd for the one of a checkout
 TCD ?= .
-MBELIB ?= mbelib-neo-2.6.5/install
+MBELIB ?= mbelib-neo-2.6.7/install
 PREFIX ?= /usr/local
 PLUGINDIR ?= $(PREFIX)/lib/tcd
 
@@ -49,7 +49,7 @@ mbelib_neo_plugin.o : mbelib_neo_plugin.cpp $(TCD)/CodecPlugin.h Makefile | $(MB
 
 # without mbelib-neo: fetch and build it here (the default location only)
 $(MBELIB)/lib/libmbe-neo.a :
-	@[ "$(MBELIB)" = "mbelib-neo-2.6.5/install" ] || { echo "mbelib-neo is missing in $(MBELIB)" >&2; exit 1; }
+	@[ "$(MBELIB)" = "mbelib-neo-2.6.7/install" ] || { echo "mbelib-neo is missing in $(MBELIB)" >&2; exit 1; }
 	./build-mbelib-neo.sh
 
 # dlopen is in libSystem on macOS and libdl on Linux
