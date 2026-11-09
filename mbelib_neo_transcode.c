@@ -2,7 +2,8 @@
 //
 // transcode for the mbelib-neo plugin: the frame a decoder last decoded,
 // coded again by an encoder of another MBE codec from the model, without
-// synthesis and analysis, on mbelib-neo 2.6.7.
+// synthesis and analysis, on mbelib-neo MBE_TRANSCODE_MBELIB
+// (mbelib_neo_transcode.h).
 //
 // The three vocoders share the MBE model: a fundamental, a voicing decision
 // per harmonic and a log2 amplitude per harmonic. The decoder's model is
@@ -26,8 +27,8 @@
 // mbelib-neo's public API encodes from PCM only. The quantizers are in its
 // static archive as ordinary symbols (its private API, src/internal), and what
 // is static there is here: D-Star's pitch code, quantization and packing, and
-// the tone frames. Both are mbelib-neo 2.6.7's; mbelib_neo_plugin.cpp refuses
-// another version.
+// the tone frames. Both are of that one version; the Makefile and
+// mbelib_neo_plugin.cpp refuse another.
 
 #include <math.h>
 #include <string.h>

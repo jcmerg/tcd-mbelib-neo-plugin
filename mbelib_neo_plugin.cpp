@@ -36,13 +36,13 @@ extern "C" {
 
 #define PLUGIN_VERSION "1.2.0"
 
-// transcode (mbelib_neo_transcode.c) uses mbelib-neo's private API, which only
-// the version build-mbelib-neo.sh pins has: another needs that file checked
+// transcode (mbelib_neo_transcode.c) uses mbelib-neo's private API of the
+// version it is written for: another needs that file checked
 static constexpr bool SameString(const char *a, const char *b)
 {
 	return *a == *b && (*a == '\0' || SameString(a + 1, b + 1));
 }
-static_assert(SameString(MBELIB_VERSION, "2.6.7"), "mbelib_neo_transcode.c is written for mbelib-neo 2.6.7");
+static_assert(SameString(MBELIB_VERSION, MBE_TRANSCODE_MBELIB), "mbelib-neo is not the version mbelib_neo_transcode.c is written for (MBE_TRANSCODE_MBELIB)");
 
 // DMR AMBE interleave schedule, from DSD (dmr_const.h, ISC license)
 static const int rW[36] = { 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2 };
