@@ -28,6 +28,7 @@ jobs:
           path: |
             mbelib-neo-*/install
             mbelib-neo-*/src/src/internal
+            mbelib-neo-*/src/CMakeLists.txt
           key: mbelib-neo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('build-mbelib-neo.sh') }}
 
       - name: mbelib-neo

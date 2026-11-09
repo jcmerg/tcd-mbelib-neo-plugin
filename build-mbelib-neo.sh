@@ -27,7 +27,7 @@ JOBS=${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)}
 
 # the plugin's transcode needs the private headers of the source too
 if [ -f "$DIR/install/include/mbelib-neo/mbelib.h" ] && [ -f "$DIR/install/lib/libmbe-neo.a" ] \
-	&& [ -f "$DIR/src/src/internal/ambe_encoder.h" ]; then
+	&& [ -f "$DIR/src/src/internal/ambe_encoder.h" ] && [ -f "$DIR/src/CMakeLists.txt" ]; then
 	echo "$DIR: built already"
 	exit 0
 fi

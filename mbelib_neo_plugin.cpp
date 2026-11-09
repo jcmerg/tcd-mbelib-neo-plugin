@@ -160,42 +160,48 @@ static void Close(void *state)
 }
 
 // on an error the frame is all zero bytes
-static int Encode(void *state, const int16_t *pcm, uint8_t *frame)
+// the parameter bits (88 for P25, 49 for AMBE) as tcd's frame of the codec,
+// with the FEC of D-Star and DMR; on an error the frame is all zero bytes
+static int PackFrame(uint32_t codec, const char *bits, uint8_t *frame)
 {
-	auto *st = static_cast<SStream *>(state);
-	if (st->codec == TCD_CODEC_P25)
+	if (codec == TCD_CODEC_P25)
 	{
-		char imbe_d[88] = {};
-		memset(frame, 0, 11);
-		if (mbe_encodeImbe4400ParmsShort(st->encImbe, pcm, imbe_d, &st->encCur, &st->encPrev) < 0)
-			return 1;
-		mbe_moveMbeParms(&st->encCur, &st->encPrev);
-		BitsToBytes(imbe_d, 88, frame);
+		BitsToBytes(bits, 88, frame);
 		return 0;
 	}
-	char ambe_d[49] = {}, fr[4][24];
+	char fr[4][24];
 	memset(frame, 0, 9);
-	if (st->codec == TCD_CODEC_DSTAR)
+	if (codec == TCD_CODEC_DSTAR)
 	{
-		if (mbe_encodeAmbe2400ParmsShort(st->enc2400, pcm, ambe_d, &st->encCur, &st->encPrev) < 0)
-			return 1;
-		mbe_moveMbeParms(&st->encCur, &st->encPrev);
-		if (mbe_encodeAmbe3600x2400Frame(ambe_d, fr) < 0 || mbe_encodeDStarDVData(fr, frame) < 0)
+		if (mbe_encodeAmbe3600x2400Frame(bits, fr) < 0 || mbe_encodeDStarDVData(fr, frame) < 0)
 		{
 			memset(frame, 0, 9);
 			return 1;
 		}
+		return 0;
 	}
-	else
-	{
-		if (mbe_encodeAmbe2450ParmsShort(st->enc2450, pcm, ambe_d, &st->encCur, &st->encPrev) < 0)
-			return 1;
-		mbe_moveMbeParms(&st->encCur, &st->encPrev);
-		if (mbe_encodeAmbe3600x2450Frame(ambe_d, fr) < 0)
-			return 1;
-		PlanesToDmr(fr, frame);
-	}
+	if (mbe_encodeAmbe3600x2450Frame(bits, fr) < 0)
+		return 1;
+	PlanesToDmr(fr, frame);
 	return 0;
+}
+
+static int Encode(void *state, const int16_t *pcm, uint8_t *frame)
+{
+	auto *st = static_cast<SStream *>(state);
+	char bits[88] = {};	// 49 for AMBE
+	int r;
+	memset(frame, 0, st->codec == TCD_CODEC_P25 ? 11 : 9);
+	if (st->codec == TCD_CODEC_P25)
+		r = mbe_encodeImbe4400ParmsShort(st->encImbe, pcm, bits, &st->encCur, &st->encPrev);
+	else if (st->codec == TCD_CODEC_DSTAR)
+		r = mbe_encodeAmbe2400ParmsShort(st->enc2400, pcm, bits, &st->encCur, &st->encPrev);
+	else
+		r = mbe_encodeAmbe2450ParmsShort(st->enc2450, pcm, bits, &st->encCur, &st->encPrev);
+	if (r < 0)
+		return 1;
+	mbe_moveMbeParms(&st->encCur, &st->encPrev);
+	return PackFrame(st->codec, bits, frame);
 }
 
 static void Info(const mbe_process_result &result, tcd_frame_info *info)
@@ -285,27 +291,7 @@ static int Transcode(void *decoder, void *encoder, float gain_db, uint8_t *frame
 	char bits[88];
 	if (mbe_transcodeParms(&dec->model, dec->vocoder, st->vocoder, gain_db, &st->encCur, &st->encPrev, &st->sync, bits) != 0)
 		return 1;
-	if (st->codec == TCD_CODEC_P25)
-	{
-		BitsToBytes(bits, 88, frame);
-		return 0;
-	}
-	char fr[4][24];
-	if (st->codec == TCD_CODEC_DSTAR)
-	{
-		if (mbe_encodeAmbe3600x2400Frame(bits, fr) < 0 || mbe_encodeDStarDVData(fr, frame) < 0)
-		{
-			memset(frame, 0, 9);
-			return 1;
-		}
-	}
-	else
-	{
-		if (mbe_encodeAmbe3600x2450Frame(bits, fr) < 0)
-			return 1;
-		PlanesToDmr(fr, frame);
-	}
-	return 0;
+	return PackFrame(st->codec, bits, frame);
 }
 
 // API 4: tcd 0.20.0 and later load it
