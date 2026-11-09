@@ -10,7 +10,8 @@
 // is counted for D-Star and DMR (not for P25, whose frames have no FEC), that
 // a garbled DMR frame comes out as a repeat, and that transcode codes each of
 // the three into each other at the level of the audio path, and -60 dB as
-// silence.
+// silence; and that tone frames stay tone frames between D-Star and DMR, are
+// heard in P25, a tone P25 cannot carry and a mute come out silent.
 
 #include <cmath>
 #include <cstdint>
@@ -169,6 +170,89 @@ static double Through(const tcd_codec_plugin *p, const SCodec &a, const SCodec &
 	return energy / (20.0 * 160);
 }
 
+// Tones through transcode: frames 0..29 the tone f1 + f2 (f2 0: one tone)
+// coded with codec a, then frames 30..34 garbled (all 0xff) when garble is
+// set. The tone frames codec a sent and b decoded, and the energy per sample
+// codec b decoded for frames 10..29 and 31..34.
+struct STones
+{
+	int sent = 0, kept = 0;
+	double tone = 0, after = 0;
+};
+
+static STones Tones(const tcd_codec_plugin *p, const SCodec &a, const SCodec &b, double f1, double f2, bool garble)
+{
+	const std::string name = std::string(a.name) + "->" + b.name + " tone";
+	STones r;
+	void *enc = p->open(a.codec), *dec = p->open(a.codec), *tc = p->open(b.codec), *out = p->open(b.codec);
+	Check(enc && dec && tc && out, "open", name.c_str());
+	if (enc && dec && tc && out)
+	{
+		for (void *s : { enc, dec, tc, out })
+			p->start(s);
+		std::vector<int16_t> pcm(160);
+		std::vector<uint8_t> fa(a.bytes), fb(b.bytes);
+		for (int n = 0, t = 0; n < (garble ? 35 : 30); n++)
+		{
+			for (auto &s : pcm)
+			{
+				s = int16_t(5000 * (std::sin(2 * M_PI * f1 * t / 8000) + (f2 > 0 ? std::sin(2 * M_PI * f2 * t / 8000) : 0)));
+				t++;
+			}
+			if (n < 30)
+				Check(p->encode(enc, pcm.data(), fa.data()) == 0, "encode", name.c_str());
+			else
+				std::memset(fa.data(), 0xff, a.bytes);
+			tcd_frame_info ia{ 0, 0 }, ib{ 0, 0 };
+			Check(p->decode_info(dec, fa.data(), pcm.data(), &ia) == 0, "decode_info", name.c_str());
+			Check(p->transcode(dec, tc, 0.0f, fb.data()) == 0, "transcode", name.c_str());
+			Check(p->decode_info(out, fb.data(), pcm.data(), &ib) == 0, "decode_info", name.c_str());
+			r.sent += n < 30 && (ia.flags & TCD_FRAME_TONE);
+			r.kept += n < 30 && (ib.flags & TCD_FRAME_TONE);
+			double e = 0;
+			for (auto s : pcm)
+				e += double(s) * s;
+			if (n >= 10 && n < 30)
+				r.tone += e / (20.0 * 160);
+			if (n >= 31)
+				r.after += e / (4.0 * 160);
+		}
+	}
+	for (void *s : { enc, dec, tc, out })
+		if (s)
+			p->close(s);
+	return r;
+}
+
+static void TranscodeTones(const tcd_codec_plugin *p)
+{
+	const SCodec &dstar = s_Codecs[0], &dmr = s_Codecs[1], &p25 = s_Codecs[2];
+	// DTMF 1 (697 + 1209 Hz): D-Star and DMR send it as tone frames
+	for (const SCodec *a : { &dstar, &dmr })
+	{
+		for (const SCodec *b : { &dstar, &dmr, &p25 })
+		{
+			if (a == b)
+				continue;
+			const std::string name = std::string(a->name) + "->" + b->name + " DTMF";
+			const STones r = Tones(p, *a, *b, 697, 1209, b == &dstar);
+			Check(r.sent >= 25, "the source sends no tone frames", name.c_str());
+			if (b == &p25)
+				Check(r.tone > 1e6, "the tone is not heard in P25", name.c_str());
+			else
+				Check(r.kept >= r.sent - 2, "tone frames do not stay tone frames", name.c_str());
+			// DMR's lost frames after a tone: the decoder plays silence, so does the transcoded stream
+			if (b == &dstar)
+				Check(r.after < 1e-3 * r.tone, "a mute after a tone is not silent", name.c_str());
+		}
+	}
+	// a single tone above 3.7 kHz: in P25 silence rather than a buzz without the tone
+	const STones r = Tones(p, dstar, p25, 3800, 0, false);
+	const STones v = Tones(p, dstar, dmr, 3800, 0, false);
+	Check(r.sent >= 25, "D-Star sends no tone frames at 3800 Hz", "dstar->p25 3800 Hz");
+	Check(r.tone < 1e-3 * v.tone, "a tone P25 cannot carry is not silent", "dstar->p25 3800 Hz");
+}
+
 static void Transcode(const tcd_codec_plugin *p)
 {
 	for (const auto &a : s_Codecs)
@@ -231,6 +315,7 @@ int main(int argc, char **argv)
 	for (const auto &c : s_Codecs)
 		Roundtrip(p, c);
 	Transcode(p);
+	TranscodeTones(p);
 	uint32_t bytes, samples;
 	Check(p->open(0x80000000u) == nullptr, "open of an unknown codec", "plugin");
 	Check(p->frame_format(0x80000000u, &bytes, &samples) != 0, "frame_format of an unknown codec", "plugin");

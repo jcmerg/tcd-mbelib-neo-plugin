@@ -2,7 +2,8 @@
 //
 // transcode for the mbelib-neo plugin: the frame a decoder last decoded,
 // coded again by an encoder of another MBE codec from the model, without
-// synthesis and analysis, on mbelib-neo 2.6.7.
+// synthesis and analysis, on mbelib-neo MBE_TRANSCODE_MBELIB
+// (mbelib_neo_transcode.h).
 //
 // The three vocoders share the MBE model: a fundamental, a voicing decision
 // per harmonic and a log2 amplitude per harmonic. The decoder's model is
@@ -26,8 +27,19 @@
 // mbelib-neo's public API encodes from PCM only. The quantizers are in its
 // static archive as ordinary symbols (its private API, src/internal), and what
 // is static there is here: D-Star's pitch code, quantization and packing, and
-// the tone frames. Both are mbelib-neo 2.6.7's; mbelib_neo_plugin.cpp refuses
-// another version.
+// the tone frames. Both are of that one version; the Makefile and
+// mbelib_neo_plugin.cpp refuse another.
+//
+// Adapted from mbelib-neo (https://github.com/arancormonk/mbelib-neo,
+// GPL-2.0-or-later, used here under GPL-3.0-or-later):
+//   ambe2400_pitch_code, ambe2400_pack, ambe2400_quantize, ambe2400_pack_tone
+//   from src/ambe/ambe3600x2400_enc.c,
+//     Copyright (C) 2026 Rhizomatica
+//     Copyright (C) 2010 mbelib Author (portions originally under the ISC license)
+//   ambe2450_pack_tone, ambe2450_unpack_tone from src/ambe/ambe3600x2450_enc.c
+//   and imbe_pitch_code and code_imbe's pitch and gain floor from
+//   src/imbe/imbe7200x4400_enc.c,
+//     Copyright (C) 2026 by arancormonk <180709949+arancormonk@users.noreply.github.com>
 
 #include <math.h>
 #include <string.h>
@@ -233,10 +245,22 @@ static float quantized_f0(float f0, int vocoder)
 	return 2.0f / ((float)imbe_pitch_code(f0) + 39.5f);
 }
 
+// the harmonics the target codes at the fundamental f0 (cycles per sample) of its pitch grid
+static int harmonic_count(float f0, int vocoder)
+{
+	if (vocoder == MBE_TRANSCODE_AMBE2400)
+		return mbe_ambe2400_harmonic_count(f0);
+	if (vocoder == MBE_TRANSCODE_AMBE2450)
+		return mbe_ambe2450_harmonic_count(mbe_ambe2450_pitch_code(f0));
+	const float w0 = 2.0f * (float)M_PI * f0;
+	return clamp_l((int)(0.9254 * (int)((M_PI / w0) + 0.25)));
+}
+
 // Tone frequencies as voiced harmonics: one tone at the harmonic k, two at
 // the harmonics k1 and k2, of the fundamental on the target's pitch grid
-// (65..400 Hz) that misses the tones least.
-static void tone_model(float f1, float f2, float db, int vocoder, struct model *m)
+// (65..400 Hz) that misses the tones least and has them within its harmonic
+// count. 0 when there is none (a tone above about 3.7 kHz).
+static int tone_model(float f1, float f2, float db, int vocoder, struct model *m)
 {
 	const float level = log2f(32768.0f * (float)M_SQRT2 * powf(10.0f, db / 20.0f)) + tone_log2_offset[vocoder];
 	const int dual = f2 > 0.0f && fabsf(f2 - f1) > 1.0f;
@@ -251,6 +275,9 @@ static void tone_model(float f1, float f2, float db, int vocoder, struct model *
 			if (c < 65.0f || c > 400.0f)
 				continue;
 			const float q = quantized_f0(c / 8000.0f, vocoder) * 8000.0f;
+			const int L = harmonic_count(q / 8000.0f, vocoder);
+			if (i > L || j > L)
+				continue;
 			// the miss, plus a preference for few harmonics: a lone high
 			// harmonic among many loses level to the amplitude quantizer
 			float err = (fabsf(f1 - ((float)i * q)) / f1) + (0.002f * (float)(i + j));
@@ -265,23 +292,23 @@ static void tone_model(float f1, float f2, float db, int vocoder, struct model *
 			}
 		}
 	}
+	if (best >= 1.0e9f)
+		return 0;
 	m->f0 = f0;
-	m->L = clamp_l((int)(0.9254f * 0.5f / m->f0));
+	m->L = harmonic_count(f0, vocoder);
 	for (int l = 1; l <= m->L; l++)
 	{
 		m->Vl[l] = 0;
 		m->a[l] = level - TONE_FLOOR_LOG2;
 	}
-	if (k1 <= m->L)
-	{
-		m->Vl[k1] = 1;
-		m->a[k1] = level;
-	}
-	if (dual && k2 <= m->L)
+	m->Vl[k1] = 1;
+	m->a[k1] = level;
+	if (dual)
 	{
 		m->Vl[k2] = 1;
 		m->a[k2] = level;
 	}
+	return 1;
 }
 
 // target harmonic l at fundamental f0t takes the source harmonic nearest in frequency
@@ -573,9 +600,7 @@ int mbe_transcodeParms(const struct mbe_transcode_model *m, int src, int dst, fl
 		quiet_model(&mod);
 	else if (m->kind == MBE_TRANSCODE_MODEL_VOICE)
 		voice_model(m, src, gain_db * LOG2_PER_DB, &mod);
-	else if (m->kind == MBE_TRANSCODE_MODEL_TONE)
-		tone_model(m->tone_f1, m->tone_f2, m->tone_db + gain_db, dst, &mod);
-	else
+	else if (m->kind != MBE_TRANSCODE_MODEL_TONE || !tone_model(m->tone_f1, m->tone_f2, m->tone_db + gain_db, dst, &mod))
 		quiet_model(&mod);
 
 	int r;

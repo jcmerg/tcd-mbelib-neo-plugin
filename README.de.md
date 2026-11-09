@@ -10,6 +10,8 @@ Seit 1.2.0 transcodiert es D-Star, DMR/YSF und P25 auch direkt ineinander (`tran
 
 **Bitte vor dem Bauen und Benutzen lesen.** Software-Umsetzungen von AMBE und AMBE+2 können Patente berühren. Die [Patentübersicht](https://github.com/arancormonk/mbelib-neo/blob/main/legal/patents.md) von mbelib-neo führt US 8,359,197 (AMBE+2 Halbrate) als aktiv, voraussichtlich bis 20.05.2028, und weitere offene Einträge. In Europa sind seine Gegenstücke (EP 1 465 158, EP 1 748 425) und die älteren DVSI-Patente nach 20 Jahren abgelaufen, spätestens am 26.03.2024; eine Suche in DVSIs europäischen Patenten und Anmeldungen (28.10.2026) fand kein geltendes erteiltes Patent, dessen Verfahren dieses Plugin nutzt, es sind aber Anmeldungen offen, die noch erteilt werden können. Weder dieses Plugin noch mbelib-neo noch die GPL geben eine Patentlizenz. Ob und wo du es baust und nutzt, entscheidest du; das hier ist keine Rechtsberatung. Deshalb gehört das Plugin nicht zu urfd-ng: dessen Setup und Builds nehmen es nur, wenn du es selbst nach `tcd/plugins/` klonst, und es ist aus, solange du es nicht lädst.
 
+Zum direkten Transcodieren (`transcode`, seit 1.2.0): DVSI hatte das Umsetzen zwischen MBE-Vocodern auf Ebene der Parameter patentiert, als „Voice transcoder“ (US 7,634,399, dazu die Teilanmeldung US 7,957,963) und in der Familie „Interoperable vocoder“ (US 7,970,606, US 8,315,860, EP 1 420 390 mit DE 603 16 396, CA 2,447,735, JP 4,166,673). Laut Google Patents (abgerufen am 09.11.2026) sind alle abgelaufen, US 7,634,399 am 07.11.2025 und EP 1 420 390 am 07.11.2023. Neuere Anmeldungen von DVSI, die die Suche fand, betreffen nach ihrem Titel anderes (Tonerkennung, Fehlerkorrektur). `transcode` nutzt den Quantisierer von AMBE+2, für den US 8,359,197 oben weiter gilt. Auch das ist eine Recherche, keine vollständige Suche und keine Rechtsauskunft; der Status bei Google Patents ist keine amtliche Auskunft.
+
 ## Bauen
 
 Braucht einen C/C++-Compiler, `make`, `cmake` (3.13 oder neuer), `tar` und `curl` oder `wget` (Debian, Ubuntu, Raspberry Pi OS; x86_64, arm64, armhf; auch macOS baut es).
@@ -27,22 +29,26 @@ sudo make install            # /usr/local/lib/tcd/mbelib_neo_codec.so
 
 Oder dieses Repository nach `tcd/plugins/mbelib-neo` des urfd-ng-Klons klonen: Das tcd-Docker-Image und `tcd/build.sh` bauen es mit tcd und installieren es, `setup.sh update` holt es auf den neuen Stand (siehe „Codec-Plugins“ und „tcd in Docker“ in [tcd/README.de.md](https://github.com/jcmerg/urfd-ng/blob/main/tcd/README.de.md#codec-plugins)).
 
-Zum Testen hat urfd-ng `tcd/tools/` (`make` dort): `./codectest /usr/local/lib/tcd/mbelib_neo_codec.so dmr|dstar|p25 ein.raw aus.frames aus.raw` kodiert und dekodiert 8-kHz-s16le-PCM und gibt die Zeit pro Frame aus; `dvsitest` vergleicht mit einem DV3003.
+Zum Testen hat urfd-ng `tcd/tools/` (`make` dort): `./codectest /usr/local/lib/tcd/mbelib_neo_codec.so dmr|dstar|p25 ein.raw aus.frames aus.raw` kodiert und dekodiert 8-kHz-s16le-PCM und gibt die Zeit pro Frame aus; mit zwei Codecs (`dstar:dmr`, beliebige zwei aus `dstar`, `dmr`, `p25`) macht es die Frames des zweiten mit `transcode`, wie der direkte Weg von tcd; `dvsitest` vergleicht mit einem DV3003.
 
 mbelib-neo liegt nicht in diesem Repository: `build-mbelib-neo.sh` holt sein Quell-Archiv, das Plugin linkt es statisch. Nur die Teile für D-Star, AMBE+2 und IMBE landen im Plugin. Auf 64-Bit-Systemen nutzt mbelib-neo seine SIMD-Routinen von selbst; auf 32-Bit-ARM (armhf, z. B. Raspberry Pi OS) schaltet das Skript seine NEON-Routinen ein, wenn die CPU NEON kann (Raspberry Pi 2 und neuer). Die Binaries bleiben übertragbar (`MBELIB_ENABLE_NATIVE=OFF`).
 
 ### mbelib-neo aktualisieren
 
-Das Skript baut genau eine Version, gegen ihre SHA-256 geprüft, damit ein Build überall gleich ist. Für eine neuere Version von [mbelib-neo](https://github.com/arancormonk/mbelib-neo/releases):
+Das Plugin ist auf genau eine Version von mbelib-neo festgelegt, damit ein Build überall gleich ist: `build-mbelib-neo.sh` holt sie und prüft ihre SHA-256. `transcode` (`mbelib_neo_transcode.c`) nutzt dazu die privaten Header und Quantisierer von mbelib-neo (`src/internal`, im statischen Archiv), für die mbelib-neo keine Stabilität verspricht; deshalb baut das Plugin nur mit der Version, für die diese Datei geschrieben ist (`MBE_TRANSCODE_MBELIB` in `mbelib_neo_transcode.h`). Das `Makefile` prüft sie am Quellbaum, `mbelib_neo_plugin.cpp` an der installierten Bibliothek; eine andere Version bricht den Build ab, statt falsche Frames zu senden.
 
-```bash
-VER=2.7.0   # die neue Version
-curl -fsSL https://github.com/arancormonk/mbelib-neo/releases/download/v$VER/mbelib-neo-$VER-source.tar.gz | sha256sum
-```
+Für eine neuere Version von [mbelib-neo](https://github.com/arancormonk/mbelib-neo/releases), vorher ihre Release-Notes lesen:
 
-Version und Summe in `VER=` und `SUM=` in `build-mbelib-neo.sh` und die Version ins `Makefile` eintragen, das alte Verzeichnis `mbelib-neo-*` löschen, dann `./build-mbelib-neo.sh && make clean && make` (in Docker oder in `tcd/plugins/`: tcd neu bauen, das baut das Plugin mit). Vorher die Release-Notes lesen: Eine neue Hauptversion kann die API ändern.
+1. Summe holen:
+   ```bash
+   VER=2.7.0   # die neue Version
+   curl -fsSL https://github.com/arancormonk/mbelib-neo/releases/download/v$VER/mbelib-neo-$VER-source.tar.gz | sha256sum
+   ```
+2. `VER=` und `SUM=` in `build-mbelib-neo.sh` eintragen (das `Makefile` und die CI lesen die Version von dort), dann `./build-mbelib-neo.sh`.
+3. `mbelib_neo_transcode.c` gegen das neue `mbelib-neo-$VER/src/src/internal` prüfen: die Signaturen der Quantisierer (`ambe_enc_*`, `mbe_ambe2450_quantize_*`, `mbe_imbe4400_quantize_amplitudes`), `struct ambe_enc_frame` und `struct ambe_enc_tables`, und was die Datei aus statischen Funktionen von mbelib-neo nachbildet (Pitch-Code, Quantisierung und Packen von D-Star, die Tonframes). Dann die Version in `MBE_TRANSCODE_MBELIB` eintragen.
+4. `make clean && make check`: Der Test prüft alle sechs Richtungen von `transcode` gegen den Audio-Weg. Das alte Verzeichnis `mbelib-neo-*` kann danach weg. In Docker oder in `tcd/plugins/`: tcd neu bauen, das baut das Plugin mit.
 
-`transcode` (`mbelib_neo_transcode.c`) nutzt die privaten Header und Quantisierer von mbelib-neo (`src/internal`, im statischen Archiv), die keine Version festschreibt. Deshalb baut das Plugin nur mit der Version, die `static_assert` in `mbelib_neo_plugin.cpp` (die installierte Bibliothek) und `MBELIB_PIN` im `Makefile` (der Quellbaum) nennen: Für eine neue Version `mbelib_neo_transcode.c` gegen deren `src/internal` prüfen (Quantisierer, Tabellen, `struct ambe_enc_frame`, das Packen der Frames), dann die Version an beiden Stellen eintragen und `make check` laufen lassen. `MBELIB_SRC=` nennt den Quellbaum von mbelib-neo, wenn er nicht neben `MBELIB=` liegt.
+`MBELIB=` und `MBELIB_SRC=` nennen eine installierte Bibliothek und ihren Quellbaum an anderer Stelle; beide müssen die festgelegte Version haben.
 
 ## Benutzen
 
@@ -83,6 +89,19 @@ Mit Bitfehlern in den DV3003-Frames (1 / 3 / 5 % der Bits gekippt), dekodiert vo
 - **P25** (kein DVSI-Baustein kann IMBE, deshalb gegen den eigenen OP25-Vocoder von tcd, auf denselben Clips): OP25 → OP25 2,49, mbelib-neo → mbelib-neo 2,61, OP25 → mbelib-neo 2,53, mbelib-neo → OP25 2,55; über tcd nach DMR 2,20 gegen 2,26, nach M17 2,25 gegen 2,26. Ein kleiner Gewinn, vor allem vom Encoder; OP25 bleibt der Standard von tcd.
 - 19 Clips und PESQ sind ein Anhaltspunkt, kein Hörtest: Unterschiede unter etwa 0,1 sagen wenig.
 
+Direkt transcodiert (1.2.0, 09.11.2026, mbelib-neo 2.6.7): PESQ gegen das Original über drei Sprachclips (deutsch weiblich, englisch weiblich und männlich, 8 kHz), jeder Weg mit dem Plugin auf beiden Seiten; der Audio-Weg dekodiert und kodiert neu, wie tcd ohne `transcode` (beides ohne die AGC von tcd), gemessen mit `codectest` von tcd:
+
+| Quelle → Ziel | Audio-Weg | direkt | Gewinn |
+|---|---|---|---|
+| D-Star → DMR | 2,56 | 2,80 | +0,24 |
+| D-Star → P25 | 2,63 | 2,98 | +0,36 |
+| DMR → D-Star | 2,54 | 2,81 | +0,27 |
+| DMR → P25 | 2,60 | 2,90 | +0,30 |
+| P25 → D-Star | 2,65 | 2,92 | +0,27 |
+| P25 → DMR | 2,63 | 2,95 | +0,33 |
+
+Jeder der 18 Fälle gewinnt (+0,16 bis +0,44). Der Pegel liegt etwa 1 dB unter dem des Audio-Wegs; `transcode` braucht ein Fünftel bis ein Fünfzehntel der Rechenzeit des Kodierens. Drei Clips sind weniger als die 19 oben, die Richtung ist aber in jedem Clip dieselbe.
+
 ## Dateien
 
 - `mbelib_neo_plugin.cpp`: das Plugin
@@ -93,7 +112,7 @@ Mit Bitfehlern in den DV3003-Frames (1 / 3 / 5 % der Bits gekippt), dekodiert vo
 
 ## Versionen
 
-- **1.2.0** (09.11.2026): tcd-Codec-API 4 (ab tcd 0.20.0): `transcode` für alle sechs Richtungen zwischen D-Star, DMR/YSF und P25, aus dem Modell des Vocoders statt aus dem decodierten Audio; Töne bleiben Töne, wo das Ziel sie hat. Nutzt die privaten Quantisierer von mbelib-neo 2.6.7 und baut nur mit dieser Version. Kodieren und Dekodieren unverändert.
+- **1.2.0** (09.11.2026): tcd-Codec-API 4 (ab tcd 0.20.0): `transcode` für alle sechs Richtungen zwischen D-Star, DMR/YSF und P25, aus dem Modell des Vocoders statt aus dem decodierten Audio; Töne bleiben Töne, wo das Ziel sie hat; +0,24 bis +0,36 PESQ gegenüber Decodieren und neu Codieren (siehe „Gemessen“). Nutzt die privaten Quantisierer von mbelib-neo 2.6.7 und baut nur mit dieser Version. Kodieren und Dekodieren unverändert.
 - **1.1.2** (08.11.2026): mbelib-neo 2.6.7. Sein Decoder kommt näher an den von DVSI: die stimmhafte Phase, wie DVSI sie regeneriert (die Tonhöhe wechselt 16 Samples nach der Rahmenmitte, ein stimmhafter Einsatz startet die Phase neu), die Stimmhaftigkeit von DMR (Rate 33), wie DVSI sie liest, und DMR- und P25-Rahmen werden nicht mehr leiser skaliert, wo DVSI es nicht tut (bisher bis zu 2,95 dB leiser bei DMR, 1,05 dB bei P25). Die Klangmessungen unten sind noch die von 2.6.5. `CodecPlugin.h` wie in tcd 0.20.0 (API 4), das Plugin bleibt API 3.
 - **1.1.1** (03.11.2026): Korrekturen aus einem Review; Kodieren und Dekodieren unverändert (Bit für Bit dieselben Frames und dasselbe PCM wie 1.1.0). Nur `tcd_codec_plugin` wird exportiert, aus `open` kommt keine Exception, ein Frame ist nur Nullen, wenn das Kodieren scheitert. `make check`, CI, `-Wall -Wextra`, `CXXFLAGS`/`LDFLAGS` aus der Umgebung, `WERROR=1`, `DESTDIR`. `build-mbelib-neo.sh` auch auf macOS, es prüft vorab seine Werkzeuge und baut neu, wenn `libmbe-neo.a` fehlt. Die P25-Statistik erklärt. `CodecPlugin.h` wie in tcd 0.16.0.
 - **1.1.0** (31.10.2026): tcd-Codec-API 3 (ab tcd 0.15.0): Der Decoder meldet die korrigierten Bitfehler sowie wiederholte, stummgeschaltete, Ton- und Stille-Frames, die der Monitor von tcd zählt; die Frame-Formate werden angegeben. Kodieren und Dekodieren unverändert.

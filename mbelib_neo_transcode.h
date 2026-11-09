@@ -5,8 +5,9 @@
 // synthesis and analysis (tcd codec API 4)
 //
 // Built against mbelib-neo's private headers and archive symbols of exactly
-// the version build-mbelib-neo.sh pins (the Makefile checks the source tree,
-// mbelib_neo_plugin.cpp the installed library).
+// one version, MBE_TRANSCODE_MBELIB: the Makefile checks the source tree,
+// mbelib_neo_plugin.cpp the installed library. Another version needs
+// mbelib_neo_transcode.c checked against its src/internal first.
 
 #pragma once
 
@@ -15,6 +16,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// the mbelib-neo version mbelib_neo_transcode.c is written for
+#define MBE_TRANSCODE_MBELIB "2.6.7"
 
 // the three vocoders
 #define MBE_TRANSCODE_AMBE2400 0	// D-Star
