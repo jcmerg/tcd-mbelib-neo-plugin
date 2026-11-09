@@ -25,7 +25,9 @@ URL=https://github.com/arancormonk/mbelib-neo/releases/download/v$VER/mbelib-neo
 
 JOBS=${JOBS:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)}
 
-if [ -f "$DIR/install/include/mbelib-neo/mbelib.h" ] && [ -f "$DIR/install/lib/libmbe-neo.a" ]; then
+# the plugin's transcode needs the private headers of the source too
+if [ -f "$DIR/install/include/mbelib-neo/mbelib.h" ] && [ -f "$DIR/install/lib/libmbe-neo.a" ] \
+	&& [ -f "$DIR/src/src/internal/ambe_encoder.h" ]; then
 	echo "$DIR: built already"
 	exit 0
 fi

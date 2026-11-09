@@ -32,8 +32,17 @@ extern "C" {
 }
 
 #include "CodecPlugin.h"
+#include "mbelib_neo_transcode.h"
 
-#define PLUGIN_VERSION "1.1.2"
+#define PLUGIN_VERSION "1.2.0"
+
+// transcode (mbelib_neo_transcode.c) uses mbelib-neo's private API, which only
+// the version build-mbelib-neo.sh pins has: another needs that file checked
+static constexpr bool SameString(const char *a, const char *b)
+{
+	return *a == *b && (*a == '\0' || SameString(a + 1, b + 1));
+}
+static_assert(SameString(MBELIB_VERSION, "2.6.7"), "mbelib_neo_transcode.c is written for mbelib-neo 2.6.7");
 
 // DMR AMBE interleave schedule, from DSD (dmr_const.h, ISC license)
 static const int rW[36] = { 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2 };
@@ -79,16 +88,25 @@ static void BytesToBits(const uint8_t *bytes, int n, char *bits)
 		bits[i] = (bytes[i >> 3] >> (7 - (i & 7))) & 1;
 }
 
-// a stream: an encoder with its prediction, and a decoder
+// a stream: an encoder with its prediction, and a decoder with the model of
+// the frame it decoded last, for transcode
 struct SStream
 {
 	uint32_t codec;
+	int vocoder;
 	mbe_ambe2400_encoder *enc2400 = nullptr;
 	mbe_ambe2450_encoder *enc2450 = nullptr;
 	mbe_imbe4400_encoder *encImbe = nullptr;
 	mbe_parms encCur, encPrev, encEnh;
 	mbe_parms decCur, decPrev, decEnh;
+	mbe_transcode_model model;
+	int sync = 0;	// the IMBE synchronization bit transcode alternates
 };
+
+static int Vocoder(uint32_t codec)
+{
+	return codec == TCD_CODEC_DSTAR ? MBE_TRANSCODE_AMBE2400 : codec == TCD_CODEC_DMR ? MBE_TRANSCODE_AMBE2450 : MBE_TRANSCODE_IMBE;
+}
 
 static int Init(void) { return 0; }
 
@@ -100,6 +118,7 @@ static void *Open(uint32_t codec)
 	if (!st)
 		return nullptr;
 	st->codec = codec;
+	st->vocoder = Vocoder(codec);
 	if (codec == TCD_CODEC_DSTAR)
 		st->enc2400 = mbe_ambe2400EncoderAlloc();
 	else if (codec == TCD_CODEC_DMR)
@@ -113,6 +132,7 @@ static void *Open(uint32_t codec)
 	}
 	mbe_initMbeParms(&st->encCur, &st->encPrev, &st->encEnh);
 	mbe_initMbeParms(&st->decCur, &st->decPrev, &st->decEnh);
+	mbe_transcodeForget(&st->model);
 	return st;
 }
 
@@ -126,6 +146,8 @@ static void Start(void *state)
 	mbe_imbe4400EncoderReset(st->encImbe);
 	mbe_initMbeParms(&st->encCur, &st->encPrev, &st->encEnh);
 	mbe_initMbeParms(&st->decCur, &st->decPrev, &st->decEnh);
+	mbe_transcodeForget(&st->model);
+	st->sync = 0;
 }
 
 static void Close(void *state)
@@ -198,30 +220,37 @@ static int DecodeInfo(void *state, const uint8_t *frame, int16_t *pcm, tcd_frame
 	mbe_process_result result;
 	mbe_initProcessResult(&result);
 	int r;
+	char bits[88] = {};	// the parameter bits, 49 of them for AMBE
 	if (st->codec == TCD_CODEC_P25)
 	{
 		// the parameter bits only, without their FEC: no bit errors to count
-		char imbe_d[88];
-		BytesToBits(frame, 88, imbe_d);
-		r = mbe_processImbe4400Data(pcm, &result, imbe_d, &st->decCur, &st->decPrev, &st->decEnh);
+		BytesToBits(frame, 88, bits);
+		r = mbe_processImbe4400Data(pcm, &result, bits, &st->decCur, &st->decPrev, &st->decEnh);
 	}
 	else
 	{
-		char ambe_d[49] = {}, fr[4][24];
+		char fr[4][24];
 		if (st->codec == TCD_CODEC_DSTAR)
 		{
 			if (mbe_decodeDStarDVData(frame, fr) < 0)
+			{
+				mbe_transcodeForget(&st->model);
 				return 1;
-			r = mbe_processAmbe3600x2400Frame(pcm, &result, fr, ambe_d, &st->decCur, &st->decPrev, &st->decEnh);
+			}
+			r = mbe_processAmbe3600x2400Frame(pcm, &result, fr, bits, &st->decCur, &st->decPrev, &st->decEnh);
 		}
 		else
 		{
 			DmrToPlanes(frame, fr);
-			r = mbe_processAmbe3600x2450Frame(pcm, &result, fr, ambe_d, &st->decCur, &st->decPrev, &st->decEnh);
+			r = mbe_processAmbe3600x2450Frame(pcm, &result, fr, bits, &st->decCur, &st->decPrev, &st->decEnh);
 		}
 	}
 	if (r < 0)
+	{
+		mbe_transcodeForget(&st->model);
 		return 1;
+	}
+	mbe_transcodeRecord(&st->model, st->vocoder, &result, bits, &st->decCur, &st->decPrev);
 	Info(result, info);
 	return 0;
 }
@@ -242,10 +271,46 @@ static int FrameFormat(uint32_t codec, uint32_t *bytes, uint32_t *samples)
 	return 0;
 }
 
-// API 3: tcd 0.15.0 and later load it; API 4 would add transcode only, which
-// this plugin does not have, and keep older tcd versions from loading it
+// API 4: the frame the decoder state decoded last, coded for the encoder
+// state's codec from the vocoder model rather than from its audio; on an
+// error the frame is all zero bytes, and tcd encodes the audio
+static int Transcode(void *decoder, void *encoder, float gain_db, uint8_t *frame)
+{
+	auto *dec = static_cast<SStream *>(decoder);
+	auto *st = static_cast<SStream *>(encoder);
+	const uint32_t bytes = st->codec == TCD_CODEC_P25 ? 11 : 9;
+	memset(frame, 0, bytes);
+	if (dec->vocoder == st->vocoder)
+		return 1;
+	char bits[88];
+	if (mbe_transcodeParms(&dec->model, dec->vocoder, st->vocoder, gain_db, &st->encCur, &st->encPrev, &st->sync, bits) != 0)
+		return 1;
+	if (st->codec == TCD_CODEC_P25)
+	{
+		BitsToBytes(bits, 88, frame);
+		return 0;
+	}
+	char fr[4][24];
+	if (st->codec == TCD_CODEC_DSTAR)
+	{
+		if (mbe_encodeAmbe3600x2400Frame(bits, fr) < 0 || mbe_encodeDStarDVData(fr, frame) < 0)
+		{
+			memset(frame, 0, 9);
+			return 1;
+		}
+	}
+	else
+	{
+		if (mbe_encodeAmbe3600x2450Frame(bits, fr) < 0)
+			return 1;
+		PlanesToDmr(fr, frame);
+	}
+	return 0;
+}
+
+// API 4: tcd 0.20.0 and later load it
 static const tcd_codec_plugin s_Plugin = {
-	3,
+	4,
 	"mbelib-neo",
 	"plugin " PLUGIN_VERSION ": D-Star AMBE, DMR AMBE+2 and P25 IMBE from mbelib-neo " MBELIB_VERSION,
 	TCD_CODEC_DSTAR | TCD_CODEC_DMR | TCD_CODEC_P25,
@@ -260,7 +325,7 @@ static const tcd_codec_plugin s_Plugin = {
 	nullptr,	// nothing to do at the end: the next start resets
 	DecodeInfo,
 	FrameFormat,
-	nullptr,	// no transcode (API 4)
+	Transcode,
 };
 
 // the plugin's only exported symbol (-fvisibility=hidden and the export list in the Makefile)

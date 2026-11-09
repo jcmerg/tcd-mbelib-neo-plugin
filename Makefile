@@ -9,25 +9,31 @@
 #   CodecPlugin = /usr/local/lib/tcd/mbelib_neo_codec.so
 #
 # mbelib-neo is linked into the plugin statically, MBELIB= is where
-# build-mbelib-neo.sh installed it; make clean leaves it there. CXXFLAGS,
-# CPPFLAGS and LDFLAGS from the environment or the command line are taken (the
-# default is -O2), WERROR=1 makes warnings errors, DESTDIR= installs into a
-# staging directory.
+# build-mbelib-neo.sh installed it, MBELIB_SRC= its source (transcode,
+# mbelib_neo_transcode.c, uses its private headers); make clean leaves both
+# there. CFLAGS, CXXFLAGS, CPPFLAGS and LDFLAGS from the environment or the
+# command line are taken (the default is -O2), WERROR=1 makes warnings errors,
+# DESTDIR= installs into a staging directory.
 
 # CodecPlugin.h: the copy here, or TCD=/path/to/urfd-ng/tcd for the one of a checkout
 TCD ?= .
 MBELIB ?= mbelib-neo-2.6.7/install
+MBELIB_SRC ?= $(MBELIB)/../src
 PREFIX ?= /usr/local
 PLUGINDIR ?= $(PREFIX)/lib/tcd
 
+CFLAGS ?= -O2
 CXXFLAGS ?= -O2
 CPPFLAGS ?=
 LDFLAGS ?=
+override CFLAGS += -Wall -Wextra -std=gnu11 -fPIC -MMD -MP
 override CXXFLAGS += -Wall -Wextra -std=c++17 -fPIC -MMD -MP
 override CPPFLAGS += -I$(TCD) -I$(MBELIB)/include
 ifeq ($(WERROR),1)
+override CFLAGS += -Werror
 override CXXFLAGS += -Werror
 endif
+OBJS = mbelib_neo_plugin.o mbelib_neo_transcode.o
 PLUGIN = mbelib_neo_codec.so
 
 all : $(PLUGIN)
@@ -40,16 +46,24 @@ else
 LDEXPORT = -Wl,--version-script=plugin.map -Wl,--no-undefined
 endif
 
-$(PLUGIN) : mbelib_neo_plugin.o $(MBELIB)/lib/libmbe-neo.a plugin.map
-	$(CXX) $(LDFLAGS) -shared mbelib_neo_plugin.o $(MBELIB)/lib/libmbe-neo.a -o $@ $(LDEXPORT) -lm
+$(PLUGIN) : $(OBJS) $(MBELIB)/lib/libmbe-neo.a plugin.map
+	$(CXX) $(LDFLAGS) -shared $(OBJS) $(MBELIB)/lib/libmbe-neo.a -o $@ $(LDEXPORT) -lm
 
 # mbelib-neo first: its headers come with its install (also with make -j)
-mbelib_neo_plugin.o : mbelib_neo_plugin.cpp $(TCD)/CodecPlugin.h Makefile | $(MBELIB)/lib/libmbe-neo.a
+mbelib_neo_plugin.o : mbelib_neo_plugin.cpp mbelib_neo_transcode.h $(TCD)/CodecPlugin.h Makefile | $(MBELIB)/lib/libmbe-neo.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -fvisibility=hidden -c $< -o $@
 
-# without mbelib-neo: fetch and build it here (the default location only)
-$(MBELIB)/lib/libmbe-neo.a :
-	@[ "$(MBELIB)" = "mbelib-neo-2.6.7/install" ] || { echo "mbelib-neo is missing in $(MBELIB)" >&2; exit 1; }
+# against mbelib-neo's private headers, of the version build-mbelib-neo.sh pins
+# (mbelib_neo_plugin.cpp checks the installed library's)
+MBELIB_PIN = 2.6.7
+mbelib_neo_transcode.o : mbelib_neo_transcode.c mbelib_neo_transcode.h Makefile | $(MBELIB_SRC)/src/internal/ambe_encoder.h
+	@grep -q '^project(mbelib-neo VERSION $(MBELIB_PIN) ' "$(MBELIB_SRC)/CMakeLists.txt" || { echo "the mbelib-neo source in $(MBELIB_SRC) is not $(MBELIB_PIN), which mbelib_neo_transcode.c is written for" >&2; exit 1; }
+	$(CC) $(CPPFLAGS) -I$(MBELIB_SRC)/src/internal $(CFLAGS) -fvisibility=hidden -c $< -o $@
+
+# without mbelib-neo, or without its source: fetch and build it here (the
+# default location only)
+$(MBELIB)/lib/libmbe-neo.a $(MBELIB_SRC)/src/internal/ambe_encoder.h :
+	@[ "$(MBELIB)" = "mbelib-neo-2.6.7/install" ] || { echo "mbelib-neo or its source is missing in $(MBELIB) / $(MBELIB_SRC) (MBELIB=, MBELIB_SRC=)" >&2; exit 1; }
 	./build-mbelib-neo.sh
 
 # dlopen is in libSystem on macOS and libdl on Linux

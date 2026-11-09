@@ -7,13 +7,16 @@
 // It checks what tcd refuses a plugin for (api, name, the frame formats of its
 // table), that only tcd_codec_plugin is exported, that each codec encodes and
 // decodes a tone to something audible without bit errors, that a flipped bit
-// is counted for D-Star and DMR (not for P25, whose frames have no FEC) and
-// that a garbled DMR frame comes out as a repeat.
+// is counted for D-Star and DMR (not for P25, whose frames have no FEC), that
+// a garbled DMR frame comes out as a repeat, and that transcode codes each of
+// the three into each other at the level of the audio path, and -60 dB as
+// silence.
 
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <vector>
 
 #include <dlfcn.h>
@@ -109,6 +112,89 @@ static void Roundtrip(const tcd_codec_plugin *p, const SCodec &c)
 	p->close(dec);
 }
 
+// a vowel: harmonics of 180 Hz under three formants
+static void Vowel(std::vector<int16_t> &pcm, int &t)
+{
+	for (auto &s : pcm)
+	{
+		double v = 0;
+		for (int k = 1; k * 180.0 < 3800; k++)
+		{
+			const double f = k * 180.0;
+			const double env = 1 / (1 + std::pow((f - 600) / 250, 2)) + 0.5 / (1 + std::pow((f - 1400) / 300, 2))
+				+ 0.25 / (1 + std::pow((f - 2600) / 400, 2));
+			v += env * std::sin(2 * M_PI * f * t / 8000 + k * k * 0.3);
+		}
+		t++;
+		s = int16_t(3000 * v);
+	}
+}
+
+// the energy per sample of the vowel coded with codec a, decoded, coded with
+// codec b (transcode, or encode of the decoded audio as tcd's audio path) and
+// decoded, frames 10..29
+static double Through(const tcd_codec_plugin *p, const SCodec &a, const SCodec &b, bool transcode, float gain_db)
+{
+	const std::string name = std::string(a.name) + "->" + b.name;
+	void *enc = p->open(a.codec), *dec = p->open(a.codec), *tc = p->open(b.codec), *out = p->open(b.codec);
+	Check(enc && dec && tc && out, "open", name.c_str());
+	double energy = 0;
+	if (enc && dec && tc && out)
+	{
+		for (void *s : { enc, dec, tc, out })
+			p->start(s);
+		std::vector<int16_t> pcm(160);
+		std::vector<uint8_t> fa(a.bytes), fb(b.bytes);
+		for (int n = 0, t = 0; n < 30; n++)
+		{
+			Vowel(pcm, t);
+			Check(p->encode(enc, pcm.data(), fa.data()) == 0, "encode", name.c_str());
+			Check(p->decode(dec, fa.data(), pcm.data()) == 0, "decode", name.c_str());
+			if (transcode)
+				Check(p->transcode(dec, tc, gain_db, fb.data()) == 0, "transcode", name.c_str());
+			else
+				Check(p->encode(tc, pcm.data(), fb.data()) == 0, "encode", name.c_str());
+			tcd_frame_info info{ -1, 0xffffffffu };
+			Check(p->decode_info(out, fb.data(), pcm.data(), &info) == 0, "decode_info", name.c_str());
+			Check(info.errors == 0, "bit errors in a transcoded frame", name.c_str());
+			Check((info.flags & (TCD_FRAME_REPEAT | TCD_FRAME_MUTE)) == 0, "a transcoded frame repeated or muted", name.c_str());
+			if (n >= 10)
+				for (auto s : pcm)
+					energy += double(s) * s;
+		}
+	}
+	for (void *s : { enc, dec, tc, out })
+		if (s)
+			p->close(s);
+	return energy / (20.0 * 160);
+}
+
+static void Transcode(const tcd_codec_plugin *p)
+{
+	for (const auto &a : s_Codecs)
+	{
+		for (const auto &b : s_Codecs)
+		{
+			if (a.codec == b.codec)
+				continue;
+			const std::string name = std::string(a.name) + "->" + b.name;
+			const double audio = Through(p, a, b, false, 0.0f);
+			const double db = 10 * std::log10(Through(p, a, b, true, 0.0f) / audio);
+			std::printf("transcode %-10s %+5.1f dB against the audio path\n", name.c_str(), db);
+			Check(std::fabs(db) < 3.0, "the transcoded level is 3 dB or more off the audio path's", name.c_str());
+			Check(Through(p, a, b, true, -60.0f) < 1e-3 * audio, "-60 dB is not silent", name.c_str());
+		}
+		// the same codec is not transcoded
+		void *dec = p->open(a.codec), *enc = p->open(a.codec);
+		std::vector<uint8_t> f(a.bytes);
+		if (dec && enc)
+			Check(p->transcode(dec, enc, 0.0f, f.data()) != 0, "transcode into its own codec", a.name);
+		for (void *s : { dec, enc })
+			if (s)
+				p->close(s);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	if (argc != 2)
@@ -137,12 +223,14 @@ int main(int argc, char **argv)
 	Check(p->codecs == (TCD_CODEC_DSTAR | TCD_CODEC_DMR | TCD_CODEC_P25), "codecs", "plugin");
 	Check(p->init && p->open && p->close && p->encode && p->decode, "a required function is NULL", "plugin");
 	Check(p->start && p->decode_info && p->frame_format, "start, decode_info or frame_format is NULL", "plugin");
+	Check(p->api == 4 && p->transcode, "no transcode (api 4)", "plugin");
 	if (s_Failed)
 		return 1;
 	Check(p->init() == 0, "init", "plugin");
 
 	for (const auto &c : s_Codecs)
 		Roundtrip(p, c);
+	Transcode(p);
 	uint32_t bytes, samples;
 	Check(p->open(0x80000000u) == nullptr, "open of an unknown codec", "plugin");
 	Check(p->frame_format(0x80000000u, &bytes, &samples) != 0, "frame_format of an unknown codec", "plugin");
