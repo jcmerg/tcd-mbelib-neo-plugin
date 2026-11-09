@@ -16,23 +16,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, cxx: g++, asan: true }
-          - { os: ubuntu-latest, cxx: clang++ }
-          - { os: macos-latest, cxx: clang++ }
+          - { os: ubuntu-latest, cc: gcc, cxx: g++, asan: true }
+          - { os: ubuntu-latest, cc: clang, cxx: clang++ }
+          - { os: macos-latest, cc: clang, cxx: clang++ }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/cache@v4
         with:
-          path: mbelib-neo-2.6.7/install
+          path: |
+            mbelib-neo-2.6.7/install
+            mbelib-neo-2.6.7/src/src/internal
           key: mbelib-neo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('build-mbelib-neo.sh') }}
 
       - name: mbelib-neo
         run: ./build-mbelib-neo.sh
 
       - name: make check
-        run: make WERROR=1 CXX=${{ matrix.cxx }} check
+        run: make WERROR=1 CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} check
 
       - name: only tcd_codec_plugin is exported
         if: runner.os == 'Linux'
@@ -44,7 +46,7 @@ jobs:
         if: matrix.asan
         run: |
           make clean
-          make WERROR=1 CXX=${{ matrix.cxx }} CXXFLAGS="-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer" LDFLAGS="-fsanitize=address,undefined" check
+          make WERROR=1 CC=${{ matrix.cc }} CXX=${{ matrix.cxx }} CFLAGS="-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer" CXXFLAGS="-O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer" LDFLAGS="-fsanitize=address,undefined" check
 
   header:
     runs-on: ubuntu-latest
