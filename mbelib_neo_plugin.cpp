@@ -34,7 +34,7 @@ extern "C" {
 #include "CodecPlugin.h"
 #include "mbelib_neo_transcode.h"
 
-#define PLUGIN_VERSION "1.2.0"
+#define PLUGIN_VERSION "1.2.1"
 
 // transcode (mbelib_neo_transcode.c) uses mbelib-neo's private API of the
 // version it is written for: another needs that file checked

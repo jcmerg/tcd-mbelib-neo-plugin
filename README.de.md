@@ -19,7 +19,7 @@ Braucht einen C/C++-Compiler, `make`, `cmake` (3.13 oder neuer), `tar` und `curl
 ```bash
 git clone https://github.com/jcmerg/tcd-mbelib-neo-plugin.git
 cd tcd-mbelib-neo-plugin
-./build-mbelib-neo.sh        # lädt mbelib-neo 2.6.7 (gegen seine SHA-256 geprüft) und baut es hier
+./build-mbelib-neo.sh        # lädt mbelib-neo 2.6.8 (gegen seine SHA-256 geprüft) und baut es hier
 make
 make check                   # lädt das Plugin wie tcd und lässt jeden Codec einmal laufen
 sudo make install            # /usr/local/lib/tcd/mbelib_neo_codec.so
@@ -89,29 +89,42 @@ Mit Bitfehlern in den DV3003-Frames (1 / 3 / 5 % der Bits gekippt), dekodiert vo
 - **P25** (kein DVSI-Baustein kann IMBE, deshalb gegen den eigenen OP25-Vocoder von tcd, auf denselben Clips): OP25 → OP25 2,49, mbelib-neo → mbelib-neo 2,61, OP25 → mbelib-neo 2,53, mbelib-neo → OP25 2,55; über tcd nach DMR 2,20 gegen 2,26, nach M17 2,25 gegen 2,26. Ein kleiner Gewinn, vor allem vom Encoder; OP25 bleibt der Standard von tcd.
 - 19 Clips und PESQ sind ein Anhaltspunkt, kein Hörtest: Unterschiede unter etwa 0,1 sagen wenig.
 
-Direkt transcodiert (1.2.0, 09.11.2026, mbelib-neo 2.6.7): PESQ gegen das Original über drei Sprachclips (deutsch weiblich, englisch weiblich und männlich, 8 kHz), jeder Weg mit dem Plugin auf beiden Seiten; der Audio-Weg dekodiert und kodiert neu, wie tcd ohne `transcode` (beides ohne die AGC von tcd), gemessen mit `codectest` von tcd:
+Decoder von mbelib-neo 2.6.8 (Plugin 1.2.1, 10.11.2026), PESQ gegen das Original: saubere Sprache (TTS, zwei Sätze mit je 8 Clips, deutsch und englisch) und 18 FM-Aufnahmen, Rahmen vom Encoder des DV3003, decodiert vom Plugin; 2.6.7 zum Vergleich. Mit 2.6.8 folgt das decodierte Audio eng dem, was der DV3003 selbst decodiert (Korrelation der Wellenform pro Rahmen 0,88 bis 0,94, mit 2.6.7 0,28 bis 0,77):
 
-| Quelle → Ziel | Audio-Weg | direkt | Gewinn |
-|---|---|---|---|
-| D-Star → DMR | 2,56 | 2,80 | +0,24 |
-| D-Star → P25 | 2,63 | 2,98 | +0,36 |
-| DMR → D-Star | 2,54 | 2,81 | +0,27 |
-| DMR → P25 | 2,60 | 2,90 | +0,30 |
-| P25 → D-Star | 2,65 | 2,92 | +0,27 |
-| P25 → DMR | 2,63 | 2,95 | +0,33 |
+| Satz | 2.6.7 | 2.6.8 |
+|---|---|---|
+| D-Star, saubere Sprache (Satz 1 / Satz 2) | 2,87 / 2,47 | 3,03 / 2,59 |
+| DMR, saubere Sprache (Satz 1 / Satz 2) | 2,75 / 2,36 | 2,91 / 2,51 |
+| D-Star, FM | 2,38 | 2,48 |
+| DMR, FM | 2,51 | 2,55 |
+| P25 (Rahmen vom Encoder von libradiocodec), FM | 2,64 | 2,75 |
 
-Jeder der 18 Fälle gewinnt (+0,16 bis +0,44). Der Pegel liegt etwa 1 dB unter dem des Audio-Wegs; `transcode` braucht ein Fünftel bis ein Fünfzehntel der Rechenzeit des Kodierens. Drei Clips sind weniger als die 19 oben, die Richtung ist aber in jedem Clip dieselbe.
+Mit Bitfehlern (1 / 3 / 5 %) ist der Gewinn kleiner: D-Star FM +0,10 / +0,12 / +0,08, DMR FM +0,04 / +0,02 / +0,04.
+
+Direkt transcodiert (1.2.1, 10.11.2026): PESQ gegen das Original über drei Sprachclips (de_anna, en_samantha, en_daniel aus dem TTS-Satz, 8 kHz), jeder Weg mit dem Plugin auf beiden Seiten; der Audio-Weg dekodiert und kodiert neu, wie tcd ohne `transcode` (beides ohne die AGC von tcd), gemessen mit `codectest` von tcd:
+
+| Quelle → Ziel | Audio-Weg 2.6.7 | direkt 2.6.7 | Audio-Weg 2.6.8 | direkt 2.6.8 |
+|---|---|---|---|---|
+| D-Star → DMR | 2,67 | 2,97 | 2,73 | 3,10 |
+| D-Star → P25 | 2,72 | 3,01 | 2,82 | 3,28 |
+| DMR → D-Star | 2,66 | 2,94 | 2,71 | 3,10 |
+| DMR → P25 | 2,72 | 3,04 | 2,83 | 3,27 |
+| P25 → D-Star | 2,72 | 3,01 | 2,80 | 3,18 |
+| P25 → DMR | 2,72 | 3,04 | 2,80 | 3,20 |
+
+Der direkte Weg gewinnt mit 2.6.8 +0,37 bis +0,46 gegenüber dem Audio-Weg (mit 2.6.7 +0,28 bis +0,32); jeder der 18 Fälle gewinnt (+0,23 bis +0,58 mit 2.6.8). Der Pegel liegt etwa 1 dB unter dem des Audio-Wegs; `transcode` braucht ein Fünftel bis ein Fünfzehntel der Rechenzeit des Kodierens. Drei Clips sind weniger als die 19 oben, die Richtung ist aber in jedem Clip dieselbe.
 
 ## Dateien
 
 - `mbelib_neo_plugin.cpp`: das Plugin
-- `mbelib_neo_transcode.c`, `mbelib_neo_transcode.h`: `transcode`, gegen die privaten Header von mbelib-neo 2.6.7
+- `mbelib_neo_transcode.c`, `mbelib_neo_transcode.h`: `transcode`, gegen die privaten Header von mbelib-neo 2.6.8
 - `CodecPlugin.h`: eine Kopie der Plugin-Schnittstelle von tcd, gleich der von tcd gehalten (`make check` vergleicht sie in `tcd/plugins/`) (`TCD_CODEC_API 4`, ab tcd 0.20.0: `transcode`; tcd 0.15.0 bis 0.19.x brauchen Plugin 1.1.2, tcd 0.12.0 bis 0.14.x Plugin 1.0.3); `make TCD=/pfad/zu/urfd-ng/tcd` nimmt stattdessen die eines Klons
 - `build-mbelib-neo.sh`: holt und baut mbelib-neo
 - `plugin.map`: die Exportliste (Linux), `tests/smoke.cpp`: der Test von `make check`
 
 ## Versionen
 
+- **1.2.1** (10.11.2026): mbelib-neo 2.6.8. Sein Decoder synthetisiert wie DVSI: in 10-ms-Teilrahmen, mit dem Rauschgenerator von DVSI (für jeden Stream gleich, ein Decode hängt also nicht mehr von einem Seed ab) und den Ton-Überblendungen von DMR. PESQ +0,12 bis +0,16 bei sauberer Sprache, +0,04 bis +0,11 bei FM-Aufnahmen, direkt transcodiert +0,13 bis +0,27 (siehe „Gemessen“). `transcode` im Code unverändert: die privaten Header, die es nutzt, sind dieselben wie in 2.6.7.
 - **1.2.0** (09.11.2026): tcd-Codec-API 4 (ab tcd 0.20.0): `transcode` für alle sechs Richtungen zwischen D-Star, DMR/YSF und P25, aus dem Modell des Vocoders statt aus dem decodierten Audio; Töne bleiben Töne, wo das Ziel sie hat; +0,24 bis +0,36 PESQ gegenüber Decodieren und neu Codieren (siehe „Gemessen“). Nutzt die privaten Quantisierer von mbelib-neo 2.6.7 und baut nur mit dieser Version. Kodieren und Dekodieren unverändert.
 - **1.1.2** (08.11.2026): mbelib-neo 2.6.7. Sein Decoder kommt näher an den von DVSI: die stimmhafte Phase, wie DVSI sie regeneriert (die Tonhöhe wechselt 16 Samples nach der Rahmenmitte, ein stimmhafter Einsatz startet die Phase neu), die Stimmhaftigkeit von DMR (Rate 33), wie DVSI sie liest, und DMR- und P25-Rahmen werden nicht mehr leiser skaliert, wo DVSI es nicht tut (bisher bis zu 2,95 dB leiser bei DMR, 1,05 dB bei P25). Die Klangmessungen unten sind noch die von 2.6.5. `CodecPlugin.h` wie in tcd 0.20.0 (API 4), das Plugin bleibt API 3.
 - **1.1.1** (03.11.2026): Korrekturen aus einem Review; Kodieren und Dekodieren unverändert (Bit für Bit dieselben Frames und dasselbe PCM wie 1.1.0). Nur `tcd_codec_plugin` wird exportiert, aus `open` kommt keine Exception, ein Frame ist nur Nullen, wenn das Kodieren scheitert. `make check`, CI, `-Wall -Wextra`, `CXXFLAGS`/`LDFLAGS` aus der Umgebung, `WERROR=1`, `DESTDIR`. `build-mbelib-neo.sh` auch auf macOS, es prüft vorab seine Werkzeuge und baut neu, wenn `libmbe-neo.a` fehlt. Die P25-Statistik erklärt. `CodecPlugin.h` wie in tcd 0.16.0.

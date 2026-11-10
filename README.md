@@ -19,7 +19,7 @@ Needs a C/C++ compiler, `make`, `cmake` (3.13 or later), `tar` and `curl` or `wg
 ```bash
 git clone https://github.com/jcmerg/tcd-mbelib-neo-plugin.git
 cd tcd-mbelib-neo-plugin
-./build-mbelib-neo.sh        # downloads mbelib-neo 2.6.7 (checked against its SHA-256) and builds it here
+./build-mbelib-neo.sh        # downloads mbelib-neo 2.6.8 (checked against its SHA-256) and builds it here
 make
 make check                   # loads the plugin as tcd does and runs each codec once
 sudo make install            # /usr/local/lib/tcd/mbelib_neo_codec.so
@@ -88,29 +88,42 @@ With bit errors in the DV3003 frames (1 / 3 / 5 % of the bits flipped), decoded 
 - **P25** (no DVSI part does IMBE, so against tcd's own OP25 vocoder, on the same clips): OP25 → OP25 2.49, mbelib-neo → mbelib-neo 2.61, OP25 → mbelib-neo 2.53, mbelib-neo → OP25 2.55; through tcd to DMR 2.20 against 2.26, to M17 2.25 against 2.26. A small gain, mostly from the encoder; OP25 stays tcd's default.
 - 19 clips and PESQ are a guide, not a listening test: differences under about 0.1 say little.
 
-Transcoded directly (1.2.0, 2026-11-09, mbelib-neo 2.6.7): PESQ against the original over three speech clips (German female, English female and male, 8 kHz), each path with the plugin on both sides; the audio path decodes and encodes again, as tcd without `transcode` (both without tcd's AGC), measured with tcd's `codectest`:
+Decoder of mbelib-neo 2.6.8 (plugin 1.2.1, 2026-11-10), PESQ against the original: clean speech (TTS, two sets of 8 clips, German and English) and 18 FM recordings, frames of the DV3003 encoder, decoded by the plugin; 2.6.7 for comparison. With 2.6.8 the decoded audio follows the DV3003's own decode closely (waveform correlation per frame 0.88 to 0.94, against 0.28 to 0.77 with 2.6.7):
 
-| Source → target | audio path | direct | gain |
-|---|---|---|---|
-| D-Star → DMR | 2.56 | 2.80 | +0.24 |
-| D-Star → P25 | 2.63 | 2.98 | +0.36 |
-| DMR → D-Star | 2.54 | 2.81 | +0.27 |
-| DMR → P25 | 2.60 | 2.90 | +0.30 |
-| P25 → D-Star | 2.65 | 2.92 | +0.27 |
-| P25 → DMR | 2.63 | 2.95 | +0.33 |
+| Set | 2.6.7 | 2.6.8 |
+|---|---|---|
+| D-Star, clean speech (set 1 / set 2) | 2.87 / 2.47 | 3.03 / 2.59 |
+| DMR, clean speech (set 1 / set 2) | 2.75 / 2.36 | 2.91 / 2.51 |
+| D-Star, FM | 2.38 | 2.48 |
+| DMR, FM | 2.51 | 2.55 |
+| P25 (frames of libradiocodec's encoder), FM | 2.64 | 2.75 |
 
-Each of the 18 cases gains (+0.16 to +0.44). The level is about 1 dB below the audio path's; `transcode` takes a fifth to a fifteenth of the time encoding takes. Three clips are fewer than the 19 above, but the direction is the same in every clip.
+With bit errors (1 / 3 / 5 %) the gain is smaller: D-Star FM +0.10 / +0.12 / +0.08, DMR FM +0.04 / +0.02 / +0.04.
+
+Transcoded directly (1.2.1, 2026-11-10): PESQ against the original over three speech clips (de_anna, en_samantha, en_daniel of the TTS set, 8 kHz), each path with the plugin on both sides; the audio path decodes and encodes again, as tcd without `transcode` (both without tcd's AGC), measured with tcd's `codectest`:
+
+| Source → target | audio path 2.6.7 | direct 2.6.7 | audio path 2.6.8 | direct 2.6.8 |
+|---|---|---|---|---|
+| D-Star → DMR | 2.67 | 2.97 | 2.73 | 3.10 |
+| D-Star → P25 | 2.72 | 3.01 | 2.82 | 3.28 |
+| DMR → D-Star | 2.66 | 2.94 | 2.71 | 3.10 |
+| DMR → P25 | 2.72 | 3.04 | 2.83 | 3.27 |
+| P25 → D-Star | 2.72 | 3.01 | 2.80 | 3.18 |
+| P25 → DMR | 2.72 | 3.04 | 2.80 | 3.20 |
+
+The direct path gains +0.37 to +0.46 over the audio path with 2.6.8 (+0.28 to +0.32 with 2.6.7); each of the 18 cases gains (+0.23 to +0.58 with 2.6.8). The level is about 1 dB below the audio path's; `transcode` takes a fifth to a fifteenth of the time encoding takes. Three clips are fewer than the 19 above, but the direction is the same in every clip.
 
 ## Files
 
 - `mbelib_neo_plugin.cpp`: the plugin
-- `mbelib_neo_transcode.c`, `mbelib_neo_transcode.h`: `transcode`, against mbelib-neo 2.6.7's private headers
+- `mbelib_neo_transcode.c`, `mbelib_neo_transcode.h`: `transcode`, against mbelib-neo 2.6.8's private headers
 - `CodecPlugin.h`: a copy of tcd's plugin interface, kept the same as tcd's (`make check` compares it in `tcd/plugins/`) (`TCD_CODEC_API 4`, tcd 0.20.0 and later: `transcode`; tcd 0.15.0 to 0.19.x need plugin 1.1.2, tcd 0.12.0 to 0.14.x plugin 1.0.3); `make TCD=/path/to/urfd-ng/tcd` uses the one of a checkout instead
 - `build-mbelib-neo.sh`: fetches and builds mbelib-neo
 - `plugin.map`: the export list (Linux), `tests/smoke.cpp`: the test of `make check`
 
 ## Versions
 
+- **1.2.1** (2026-11-10): mbelib-neo 2.6.8. Its decoder synthesizes as DVSI does: in 10 ms subframes, with DVSI's noise generator (the same for every stream, so a decode no longer depends on a seed) and DMR's tone crossfades. PESQ +0.12 to +0.16 on clean speech, +0.04 to +0.11 on FM recordings, transcoded directly +0.13 to +0.27 (see "Measured"). `transcode` unchanged in code: the private headers it uses are the same as in 2.6.7.
 - **1.2.0** (2026-11-09): tcd codec API 4 (tcd 0.20.0 and later): `transcode` for all six directions between D-Star, DMR/YSF and P25, from the vocoder model instead of the decoded audio; tones stay tones where the target has them; +0.24 to +0.36 PESQ over decoding and encoding again (see "Measured"). Uses mbelib-neo 2.6.7's private quantizers and builds with that version only. Encoding and decoding unchanged.
 - **1.1.2** (2026-11-08): mbelib-neo 2.6.7. Its decoder comes closer to DVSI's: the voiced phase as DVSI regenerates it (the pitch moves 16 samples after mid-frame, a voiced onset restarts the phase), DMR's voicing (rate 33) as DVSI reads it, and DMR and P25 frames no longer scaled down where DVSI does not (up to 2.95 dB quieter on DMR, 1.05 dB on P25 before). The sound measurements below are of 2.6.5 still. `CodecPlugin.h` as in tcd 0.20.0 (API 4), the plugin stays API 3.
 - **1.1.1** (2026-11-03): fixes from a review; encoding and decoding unchanged (bit for bit the same frames and PCM as 1.1.0). Only `tcd_codec_plugin` is exported, no exception leaves `open`, a frame is all zeros when encoding fails. `make check`, CI, `-Wall -Wextra`, `CXXFLAGS`/`LDFLAGS` from the environment, `WERROR=1`, `DESTDIR`. `build-mbelib-neo.sh` also on macOS, it checks its tools first and builds again when `libmbe-neo.a` is missing. The P25 statistics explained. `CodecPlugin.h` as in tcd 0.16.0.

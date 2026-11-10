@@ -18,7 +18,7 @@ extern "C" {
 #endif
 
 // the mbelib-neo version mbelib_neo_transcode.c is written for
-#define MBE_TRANSCODE_MBELIB "2.6.7"
+#define MBE_TRANSCODE_MBELIB "2.6.8"
 
 // the three vocoders
 #define MBE_TRANSCODE_AMBE2400 0	// D-Star
