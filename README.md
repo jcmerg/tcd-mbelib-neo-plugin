@@ -14,7 +14,7 @@ On direct transcoding (`transcode`, since 1.2.0): DVSI patented converting betwe
 
 ## Build
 
-Needs a C/C++ compiler, `make`, `cmake` (3.13 or later), `tar` and `curl` or `wget` (Debian, Ubuntu, Raspberry Pi OS; x86_64, arm64, armhf; macOS builds it too).
+Needs a C/C++ compiler, `make`, `cmake` (3.13 or later), `tar`, `curl` or `wget`, and `sha256sum` or `shasum` (Debian, Ubuntu, Raspberry Pi OS; x86_64, arm64, armhf; macOS builds it too).
 
 ```bash
 git clone https://github.com/jcmerg/tcd-mbelib-neo-plugin.git
@@ -52,17 +52,22 @@ For a newer release of [mbelib-neo](https://github.com/arancormonk/mbelib-neo/re
 
 ## Use
 
-In `/usr/local/etc/tcd.ini`, then restart tcd:
+In `/usr/local/etc/tcd.ini` (tcd in Docker: `$URFD_DATA/tcd/tcd.ini`), then restart tcd:
 
 ```ini
+# tcd's own vocoders (tcd 0.22.0 and later): keep these two lines
+CodecPlugin = op25
+CodecPlugin = codec2
 CodecPlugin = /usr/local/lib/tcd/mbelib_neo_codec.so
 ```
+
+The `op25` and `codec2` lines are in tcd's template since tcd 0.22.0; an older tcd takes them for a plugin's path and does not start, so leave them out there.
 
 - **No AMBE stick**: tcd runs D-Star and DMR in software, for any number of `Modules`.
 - **One stick**: the stick does D-Star, the plugin DMR/YSF.
 - **Two sticks**: the sticks do the first modules of `Modules`, the plugin the rest (DV3000 + DV3003 with `Modules = FSABC`: F and S in hardware, A, B and C in software).
 - `CodecDStar = mbelib-neo` / `CodecDMR = mbelib-neo` put a codec in software from the start even where a stick could do it; tcd's web dashboard switches between the sticks and the plugin at run time.
-- `CodecP25 = mbelib-neo` (tcd 0.14.0 and later) does P25 with the plugin instead of tcd's own OP25 vocoder; without it, or with an older tcd, P25 stays on OP25. The dashboard switches P25 at run time as well.
+- `CodecP25 = mbelib-neo` (tcd 0.14.0 and later) does P25 with the plugin instead of tcd's own OP25 vocoder; without it, or with an older tcd, P25 stays on OP25. The dashboard switches P25 at run time as well. With tcd 0.22.0 and later keep `CodecPlugin = op25`, else OP25 is no longer offered in the dashboard once `CodecP25` names the plugin.
 - tcd's monitor counts bit errors for D-Star and DMR only: tcd hands P25 over as the 88 IMBE parameter bits, without their FEC, so the plugin has no errors to count there (always 0), and a P25 frame is repeated, and muted after four repeats in a row, only when its pitch cannot be used.
 - **Direct transcoding** (`Transcode = direct`, tcd 0.20.0's default): when a stream comes in as D-Star, DMR/YSF or P25 and goes out as another of the three, both through this plugin, the plugin codes the outgoing frame from the vocoder model (fundamental, voicing and amplitude of each harmonic) instead of from the decoded audio. The harmonics are laid on the target's pitch grid, the voicing of each band is decided by energy, and the amplitudes are coded with the target's quantizer against its own prediction; tcd's gain goes into the amplitudes. Tone frames (DTMF and single tones) become tone frames of the target where it has them, otherwise (P25) voiced harmonics on the tone frequencies; repeats play the last frame on, mutes become silence. `make check` tests all six directions against the audio path (level within 3 dB).
 
@@ -96,7 +101,7 @@ Decoder of mbelib-neo 2.6.8 (plugin 1.2.1, 2026-11-10), PESQ against the origina
 | DMR, clean speech (set 1 / set 2) | 2.75 / 2.36 | 2.91 / 2.51 |
 | D-Star, FM | 2.38 | 2.48 |
 | DMR, FM | 2.51 | 2.55 |
-| P25 (frames of libradiocodec's encoder), FM | 2.64 | 2.75 |
+| P25 (frames of a software IMBE encoder), FM | 2.64 | 2.75 |
 
 With bit errors (1 / 3 / 5 %) the gain is smaller: D-Star FM +0.10 / +0.12 / +0.08, DMR FM +0.04 / +0.02 / +0.04.
 
@@ -124,8 +129,8 @@ The direct path gains +0.37 to +0.46 over the audio path with 2.6.8 (+0.28 to +0
 ## Versions
 
 - **1.2.1** (2026-11-10): mbelib-neo 2.6.8. Its decoder synthesizes as DVSI does: in 10 ms subframes, with DVSI's noise generator (the same for every stream, so a decode no longer depends on a seed) and DMR's tone crossfades. PESQ +0.12 to +0.16 on clean speech, +0.04 to +0.11 on FM recordings, transcoded directly +0.13 to +0.27 (see "Measured"). `transcode` unchanged in code: the private headers it uses are the same as in 2.6.7. `CodecPlugin.h` as in tcd 0.22.0 (comments only).
-- **1.2.0** (2026-11-09): tcd codec API 4 (tcd 0.20.0 and later): `transcode` for all six directions between D-Star, DMR/YSF and P25, from the vocoder model instead of the decoded audio; tones stay tones where the target has them; +0.24 to +0.36 PESQ over decoding and encoding again (see "Measured"). Uses mbelib-neo 2.6.7's private quantizers and builds with that version only. Encoding and decoding unchanged.
-- **1.1.2** (2026-11-08): mbelib-neo 2.6.7. Its decoder comes closer to DVSI's: the voiced phase as DVSI regenerates it (the pitch moves 16 samples after mid-frame, a voiced onset restarts the phase), DMR's voicing (rate 33) as DVSI reads it, and DMR and P25 frames no longer scaled down where DVSI does not (up to 2.95 dB quieter on DMR, 1.05 dB on P25 before). The sound measurements below are of 2.6.5 still. `CodecPlugin.h` as in tcd 0.20.0 (API 4), the plugin stays API 3.
+- **1.2.0** (2026-11-09): tcd codec API 4 (tcd 0.20.0 and later): `transcode` for all six directions between D-Star, DMR/YSF and P25, from the vocoder model instead of the decoded audio; tones stay tones where the target has them; +0.24 to +0.36 PESQ over decoding and encoding again (measured with 1.2.0; "Measured" has the figures of 1.2.1). Uses mbelib-neo 2.6.7's private quantizers and builds with that version only. Encoding and decoding unchanged.
+- **1.1.2** (2026-11-08): mbelib-neo 2.6.7. Its decoder comes closer to DVSI's: the voiced phase as DVSI regenerates it (the pitch moves 16 samples after mid-frame, a voiced onset restarts the phase), DMR's voicing (rate 33) as DVSI reads it, and DMR and P25 frames no longer scaled down where DVSI does not (up to 2.95 dB quieter on DMR, 1.05 dB on P25 before). The measurements against the DV3003 in "Measured" are of 2.6.5. `CodecPlugin.h` as in tcd 0.20.0 (API 4), the plugin stays API 3.
 - **1.1.1** (2026-11-03): fixes from a review; encoding and decoding unchanged (bit for bit the same frames and PCM as 1.1.0). Only `tcd_codec_plugin` is exported, no exception leaves `open`, a frame is all zeros when encoding fails. `make check`, CI, `-Wall -Wextra`, `CXXFLAGS`/`LDFLAGS` from the environment, `WERROR=1`, `DESTDIR`. `build-mbelib-neo.sh` also on macOS, it checks its tools first and builds again when `libmbe-neo.a` is missing. The P25 statistics explained. `CodecPlugin.h` as in tcd 0.16.0.
 - **1.1.0** (2026-10-31): tcd codec API 3 (tcd 0.15.0 and later): the decoder reports the corrected bit errors and the repeated, muted, tone and silence frames, which tcd's monitor counts; the frame formats are declared. Encoding and decoding unchanged.
 - **1.0.3** (2026-10-28): P25 IMBE 4400, encoder and decoder from mbelib-neo (`CodecP25 = mbelib-neo`, tcd 0.14.0 and later); D-Star and DMR unchanged.
