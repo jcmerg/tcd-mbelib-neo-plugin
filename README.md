@@ -31,7 +31,7 @@ Or clone this repository into `tcd/plugins/mbelib-neo` of the urfd-ng checkout: 
 
 To test it, urfd-ng has `tcd/tools/` (`make` there): `./codectest /usr/local/lib/tcd/mbelib_neo_codec.so dmr|dstar|p25 in.raw out.frames out.raw` encodes and decodes 8 kHz s16le PCM and prints the time per frame; with two codecs (`dstar:dmr`, any two of `dstar`, `dmr`, `p25`) it makes the second one's frames with `transcode`, as tcd's direct path; `dvsitest` compares with a DV3003.
 
-mbelib-neo is not part of this repository: `build-mbelib-neo.sh` fetches its release source archive and the plugin links it statically. Only the D-Star, AMBE+2 and IMBE parts end up in the plugin. On 64-bit hosts mbelib-neo uses its SIMD routines by default; on 32-bit ARM (armhf, e.g. Raspberry Pi OS) the script switches its NEON routines on when the CPU has NEON (Raspberry Pi 2 and later). The binaries stay portable (`MBELIB_ENABLE_NATIVE=OFF`).
+mbelib-neo is not part of this repository: `build-mbelib-neo.sh` fetches its release source archive and the plugin links it statically. Only the D-Star, AMBE+2 and IMBE parts end up in the plugin. On 64-bit hosts mbelib-neo uses its SIMD routines by default; on 32-bit ARM (armhf, e.g. Raspberry Pi OS) the script switches its NEON routines on when the CPU has NEON (Raspberry Pi 2 and later), in a cross build when the compiler's target has it (`__ARM_NEON`); `MBELIB_NEON=1` or `0` decides it yourself. The binaries stay portable (`MBELIB_ENABLE_NATIVE=OFF`).
 
 ### Updating mbelib-neo
 
