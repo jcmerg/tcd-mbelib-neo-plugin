@@ -47,6 +47,7 @@ fi
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
+trap 'exit 1' HUP INT TERM
 if command -v curl >/dev/null; then
 	curl -fsSL -o "$TMP/mbe.tgz" "$URL"
 else

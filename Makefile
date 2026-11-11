@@ -12,9 +12,10 @@
 # build-mbelib-neo.sh installed it, MBELIB_SRC= its source (transcode,
 # mbelib_neo_transcode.c, uses its private headers); make clean leaves both
 # there. Its version is VER= in build-mbelib-neo.sh, the one transcode is
-# written for MBE_TRANSCODE_MBELIB in mbelib_neo_transcode.h. CFLAGS, CXXFLAGS, CPPFLAGS and LDFLAGS from the environment or the
-# command line are taken (the default is -O2), WERROR=1 makes warnings errors,
-# DESTDIR= installs into a staging directory.
+# written for MBE_TRANSCODE_MBELIB in mbelib_neo_transcode.h. CFLAGS,
+# CXXFLAGS, CPPFLAGS and LDFLAGS from the environment or the command line are
+# taken (the default is -O2), WERROR=1 makes warnings errors, DESTDIR=
+# installs into a staging directory.
 
 # CodecPlugin.h: the copy here, or TCD=/path/to/urfd-ng/tcd for the one of a checkout
 TCD ?= .
