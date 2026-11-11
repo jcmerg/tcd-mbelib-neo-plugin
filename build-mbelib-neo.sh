@@ -13,7 +13,10 @@
 # 64-bit hosts get mbelib-neo's SSE2/AVX2/NEON routines by default. On 32-bit
 # ARM (armhf, e.g. Raspberry Pi OS) they need NEON switched on by hand; this
 # script does that when the CPU has NEON (Raspberry Pi 2 and later), the
-# Pi 1 and Zero keep the scalar routines.
+# Pi 1 and Zero keep the scalar routines. A cross build (the compiler's
+# programs do not run here) asks the compiler instead: NEON when its target
+# has it (__ARM_NEON, e.g. CC="arm-linux-gnueabihf-gcc -mfpu=neon").
+# MBELIB_NEON=1 or 0 decides it yourself.
 #
 # A newer mbelib-neo: see "Updating mbelib-neo" in README.md.
 set -e
@@ -57,11 +60,30 @@ echo "$SUM  $TMP/mbe.tgz" | $SHA256 -c - >/dev/null || { echo "mbelib-neo: check
 mkdir -p "$DIR/src"
 tar xzf "$TMP/mbe.tgz" -C "$DIR/src" --strip-components=1
 
+# NEON on the target: MBELIB_NEON decides; a native build (a program of the
+# compiler runs here) asks the CPU, a cross build the compiler's target
+neon() {
+	case "${MBELIB_NEON:-}" in
+		1) return 0 ;;
+		0) return 1 ;;
+		'') ;;
+		*) echo "mbelib-neo: MBELIB_NEON=$MBELIB_NEON is neither 1 nor 0" >&2; exit 1 ;;
+	esac
+	printf 'int main(void) { return 0; }\n' >"$TMP/cc-test.c"
+	# shellcheck disable=SC2086
+	if ${CC:-cc} "$TMP/cc-test.c" -o "$TMP/cc-test" >/dev/null 2>&1 && "$TMP/cc-test" >/dev/null 2>&1; then
+		grep -qwE 'neon|asimd' /proc/cpuinfo 2>/dev/null
+	else
+		# shellcheck disable=SC2086
+		${CC:-cc} -dM -E -x c - </dev/null 2>/dev/null | grep -q '^#define __ARM_NEON '
+	fi
+}
+
 # 32-bit ARM with NEON: armv7-a + NEON, and the SIMD routines on
 set --
 case "$(${CC:-cc} -dumpmachine 2>/dev/null)" in
 	arm*-*gnueabihf)
-		if grep -qwE 'neon|asimd' /proc/cpuinfo 2>/dev/null; then
+		if neon; then
 			set -- -DMBELIB_ENABLE_SIMD=ON "-DCMAKE_C_FLAGS=-march=armv7-a -mfpu=neon"
 			echo "mbelib-neo: armhf with NEON, building its NEON routines"
 		fi ;;
