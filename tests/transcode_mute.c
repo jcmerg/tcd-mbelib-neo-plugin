@@ -163,6 +163,82 @@ static int run(struct codec *c, int src, int dst, const char *name)
 	return failed;
 }
 
+// a 1000 Hz tone, which D-Star's encoder codes as a tone frame
+static void tone_frame(int n, short *pcm)
+{
+	for (int i = 0; i < 160; i++)
+		pcm[i] = (short)(4000 * sin(2 * M_PI * 1000.0 * (n * 160 + i) / 8000.0));
+}
+
+// A mute leaves nothing behind for later lost frames. After an error-level
+// mute, voice and then a single-frequency tone, the lost frames after the
+// tone are silent on D-Star's decoder, and transcode codes silence too rather
+// than the voice from before the tone. And past P25's repeat limit the
+// decoder stays near silent (a reset model, repeated), and so does the target.
+static int run_quiet(struct codec *c, int src, int dst, const char *name)
+{
+	mbe_parms ec, ep, dc, dp, de, xc, xp, oc, op, oe, unused;
+	mbe_initMbeParms(&ec, &ep, &unused);
+	mbe_initMbeParms(&dc, &dp, &de);
+	mbe_initMbeParms(&xc, &xp, &unused);
+	mbe_initMbeParms(&oc, &op, &oe);
+	struct mbe_transcode_model model;
+	mbe_transcodeForget(&model);
+	int sync = 0;
+	short pcm[160], ref[160];
+	char bits[88], lost[88], out[88];
+	mbe_process_result result;
+	const int tone = src == MBE_TRANSCODE_AMBE2400;
+	// D-Star: voice to 29 (muted at 20), tone 30..39, lost 40..42;
+	// P25: voice to 19, lost 20..33
+	const int first_lost = tone ? 40 : 20, frames = tone ? 43 : 34;
+	double source = 0, target = 0;
+	lost_frame(src, lost);
+	for (int n = 0; n < frames; n++)
+	{
+		const char *frame = bits;
+		if (n < first_lost)
+		{
+			if (n >= 30)
+				tone_frame(n, pcm);
+			else
+				voiced_frame(n, pcm);
+			if (encode(c, src, pcm, bits, &ec, &ep) < 0)
+				return fail(name, "encode");
+			mbe_moveMbeParms(&ec, &ep);
+		}
+		else
+			frame = lost;
+		if (tone && n == 20)
+			dp.PSIl[0] = 400.0f;
+		else if (tone && n == 21)
+			dp.PSIl[0] = 0.0f;
+		if (decode(src, ref, &result, frame, &dc, &dp, &de) < 0)
+			return fail(name, "decode the source");
+		if (tone && n < first_lost && (n == 20) != ((result.flags & MBE_PROCESS_FLAG_MUTE) != 0))
+			return fail(name, "the mute is not on frame 20 only");
+		if (tone && n >= 32 && n < first_lost && !(result.flags & MBE_PROCESS_FLAG_TONE))
+			return fail(name, "the tone is not a tone frame");
+		mbe_transcodeRecord(&model, src, &result, frame, &dc, &dp, &de);
+		if (mbe_transcodeParms(&model, src, dst, 0.0f, &xc, &xp, &sync, out) != 0)
+			return fail(name, "mbe_transcodeParms");
+		if (decode(dst, pcm, &result, out, &oc, &op, &oe) < 0)
+			return fail(name, "decode the target");
+		// D-Star: from the 2nd lost frame; P25: from the 6th, past the limit
+		if (n >= first_lost + (tone ? 1 : 5))
+		{
+			source = fmax(source, rms(ref));
+			target = fmax(target, rms(pcm));
+		}
+	}
+	printf("%s: lost frames, source %.0f, target %.0f\n", name, source, target);
+	if (source >= 30.0)
+		return fail(name, "the source is not silent");
+	if (target >= 100.0)
+		return fail(name, "transcode codes an old frame where the source is silent");
+	return 0;
+}
+
 int main(void)
 {
 	struct codec c = { mbe_ambe2400EncoderAlloc(), mbe_ambe2450EncoderAlloc(), mbe_imbe4400EncoderAlloc() };
@@ -174,6 +250,8 @@ int main(void)
 		failed |= run(&c, MBE_TRANSCODE_AMBE2450, MBE_TRANSCODE_AMBE2400, "dmr -> dstar");
 		failed |= run(&c, MBE_TRANSCODE_AMBE2400, MBE_TRANSCODE_AMBE2450, "dstar -> dmr");
 		failed |= run(&c, MBE_TRANSCODE_IMBE, MBE_TRANSCODE_AMBE2400, "p25 -> dstar");
+		failed |= run_quiet(&c, MBE_TRANSCODE_AMBE2400, MBE_TRANSCODE_AMBE2450, "dstar mute, voice, tone -> dmr");
+		failed |= run_quiet(&c, MBE_TRANSCODE_IMBE, MBE_TRANSCODE_AMBE2400, "p25 past the repeat limit -> dstar");
 	}
 	mbe_ambe2400EncoderFree(c.e2400);
 	mbe_ambe2450EncoderFree(c.e2450);

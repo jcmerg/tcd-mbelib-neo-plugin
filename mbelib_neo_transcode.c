@@ -202,7 +202,10 @@ void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_p
 		// signals and AMBE+2's tones, which it holds over up to three lost
 		// frames (the fourth mutes)
 		if (m->kind == MBE_TRANSCODE_MODEL_TONE && !m->tone_repeats)
+		{
 			m->kind = MBE_TRANSCODE_MODEL_MUTE;
+			m->held = MBE_TRANSCODE_MODEL_NONE;
+		}
 		// An AMBE+2 repeat after a mute plays, from silence, the model the
 		// decoder kept underneath the mute: the repeated model it leaves in
 		// its last synthesized frame (a silence frame's marked as such).
@@ -211,10 +214,13 @@ void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_p
 	}
 	else
 		record_frame(m, vocoder, flags, bits, cur, prev);
-	// a muted frame codes silence; D-Star and P25 keep its model for a repeat
+	// A muted frame codes silence; D-Star and P25 keep its model for a
+	// repeat. Not at the repeat limit: D-Star stays muted, P25 goes on with a
+	// reset, near silent model.
 	if (flags & MBE_PROCESS_FLAG_MUTE)
 	{
-		const int keep = vocoder != MBE_TRANSCODE_AMBE2450 && m->kind != MBE_TRANSCODE_MODEL_MUTE;
+		const int limit = (flags & MBE_PROCESS_FLAG_REPEAT) && cur->repeatCount >= MBE_MAX_FRAME_REPEATS;
+		const int keep = vocoder != MBE_TRANSCODE_AMBE2450 && m->kind != MBE_TRANSCODE_MODEL_MUTE && !limit;
 		m->held = keep ? m->kind : MBE_TRANSCODE_MODEL_NONE;
 		m->kind = MBE_TRANSCODE_MODEL_MUTE;
 	}
