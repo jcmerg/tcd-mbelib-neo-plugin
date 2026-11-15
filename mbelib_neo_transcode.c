@@ -50,15 +50,17 @@
 #include "ambe_encoder.h"
 #include "imbe4400_internal.h"
 #include "imbe7200x4400_const.h"
+#include "mbe_adaptive.h"
 #include "mbe_encoder.h"
 #include "mbe_speech_analysis.h"
 #include "mbe_tone.h"
 
 #include "mbelib_neo_transcode.h"
 
-#define MBE_TRANSCODE_MODEL_MUTE  0
+#define MBE_TRANSCODE_MODEL_NONE  0	// nothing decoded yet, or a frame not decoded
 #define MBE_TRANSCODE_MODEL_VOICE 1
 #define MBE_TRANSCODE_MODEL_TONE  2
+#define MBE_TRANSCODE_MODEL_MUTE  3
 
 #define LOG2_PER_DB (1.0f / 6.0206f)
 // the gain range: beyond it every frame is silence or clips
@@ -125,10 +127,26 @@ static void ambe2450_unpack_tone(const char ambe_d[49], int *tone_id, int *ad)
 	*ad = (a << 1) | (ambe_d[44] & 1);
 }
 
+// the model a frame plays: pitch, voicing and decoded amplitudes; an AMBE+2
+// silence frame plays a further 13.8 dB down, outside log2Ml
+// (MBE_AMBE2450_SILENCE_GAIN in mbelib-neo's ambe3600x2450.c)
+static void record_voice(struct mbe_transcode_model *m, const mbe_parms *src, int ambe2450_silence)
+{
+	const float down = ambe2450_silence ? log2f(AMBE2450_SILENCE_GAIN) : 0.0f;
+	m->kind = MBE_TRANSCODE_MODEL_VOICE;
+	m->w0 = src->w0;
+	m->L = (src->L < 1) ? 1 : ((src->L > 56) ? 56 : src->L);
+	for (int l = 1; l <= m->L; l++)
+	{
+		m->Vl[l] = src->Vl[l] != 0;
+		m->log2Ml[l] = src->log2Ml[l] + down;
+	}
+}
+
 // What the frame just processed leaves: the model of a voice, silence or
 // repeated frame; a tone's frequencies and level; or the mute.
 void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_process_result *result, const char *bits,
-	const mbe_parms *cur, const mbe_parms *prev)
+	const mbe_parms *cur, const mbe_parms *prev, const mbe_parms *enhanced)
 {
 	const unsigned flags = result->flags;
 	if (flags & MBE_PROCESS_FLAG_MUTE)
@@ -148,6 +166,13 @@ void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_p
 		// frames (the fourth mutes)
 		if (m->kind == MBE_TRANSCODE_MODEL_TONE && !m->tone_repeats)
 			m->kind = MBE_TRANSCODE_MODEL_MUTE;
+		// An AMBE+2 repeat after a mute plays, from silence, the model the
+		// decoder kept underneath the mute: the repeated model it leaves in
+		// its last synthesized frame (a silence frame's marked as such).
+		if (m->kind == MBE_TRANSCODE_MODEL_MUTE && vocoder == MBE_TRANSCODE_AMBE2450)
+		{
+			record_voice(m, enhanced, mbe_frame_mark(enhanced) == MBE_FRAME_MARK_PREVIOUS_HELD);
+		}
 		return;
 	}
 	if (flags & MBE_PROCESS_FLAG_TONE)
@@ -182,18 +207,7 @@ void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_p
 	}
 	// a silence frame's model is decoded but kept out of the prediction
 	const mbe_parms *src = (flags & MBE_PROCESS_FLAG_SILENCE) ? cur : prev;
-	m->kind = MBE_TRANSCODE_MODEL_VOICE;
-	m->w0 = src->w0;
-	m->L = (src->L < 1) ? 1 : ((src->L > 56) ? 56 : src->L);
-	// AMBE+2 plays its silence frame a further 13.8 dB down, outside log2Ml
-	// (MBE_AMBE2450_SILENCE_GAIN in mbelib-neo's ambe3600x2450.c)
-	const float down = (vocoder == MBE_TRANSCODE_AMBE2450 && (flags & MBE_PROCESS_FLAG_SILENCE))
-		? log2f(AMBE2450_SILENCE_GAIN) : 0.0f;
-	for (int l = 1; l <= m->L; l++)
-	{
-		m->Vl[l] = src->Vl[l] != 0;
-		m->log2Ml[l] = src->log2Ml[l] + down;
-	}
+	record_voice(m, src, vocoder == MBE_TRANSCODE_AMBE2450 && (flags & MBE_PROCESS_FLAG_SILENCE));
 }
 
 // --- models ----------------------------------------------------------------

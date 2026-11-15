@@ -41,9 +41,10 @@ struct mbe_transcode_model
 void mbe_transcodeForget(struct mbe_transcode_model *m);
 
 // after mbelib-neo's process function: its result, the parameter bits it
-// decoded (49 or 88) and the decoder's cur and prev
+// decoded (49 or 88) and the decoder's cur, prev and enhanced (its last
+// synthesized frame)
 void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_process_result *result, const char *bits,
-	const mbe_parms *cur, const mbe_parms *prev);
+	const mbe_parms *cur, const mbe_parms *prev, const mbe_parms *enhanced);
 
 // the model coded for vocoder dst into bits (49 or 88), the level changed by
 // gain_db; cur and prev are the encoder's prediction history, sync the IMBE
