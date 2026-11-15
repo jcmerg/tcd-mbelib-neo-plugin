@@ -173,11 +173,11 @@ static double Through(const tcd_codec_plugin *p, const SCodec &a, const SCodec &
 // Tones through transcode: frames 0..29 the tone f1 + f2 (f2 0: one tone)
 // coded with codec a, then frames 30..34 garbled (all 0xff) when garble is
 // set. The tone frames codec a sent and b decoded, and the energy per sample
-// codec b decoded for frames 10..29 and 31..34.
+// codec b decoded for frames 10..29, 30..31 and 34.
 struct STones
 {
 	int sent = 0, kept = 0;
-	double tone = 0, after = 0;
+	double tone = 0, held = 0, after = 0;
 };
 
 static STones Tones(const tcd_codec_plugin *p, const SCodec &a, const SCodec &b, double f1, double f2, bool garble)
@@ -214,8 +214,10 @@ static STones Tones(const tcd_codec_plugin *p, const SCodec &a, const SCodec &b,
 				e += double(s) * s;
 			if (n >= 10 && n < 30)
 				r.tone += e / (20.0 * 160);
-			if (n >= 31)
-				r.after += e / (4.0 * 160);
+			if (n == 30 || n == 31)
+				r.held += e / (2.0 * 160);
+			if (n == 34)
+				r.after += e / 160;
 		}
 	}
 	for (void *s : { enc, dec, tc, out })
@@ -241,9 +243,13 @@ static void TranscodeTones(const tcd_codec_plugin *p)
 				Check(r.tone > 1e6, "the tone is not heard in P25", name.c_str());
 			else
 				Check(r.kept >= r.sent - 2, "tone frames do not stay tone frames", name.c_str());
-			// DMR's lost frames after a tone: the decoder plays silence, so does the transcoded stream
+			// DMR's lost frames after a tone: the decoder plays the tone on for
+			// three frames and mutes at the fourth, so does the transcoded stream
 			if (b == &dstar)
+			{
+				Check(r.held > 0.5 * r.tone, "lost frames after a tone do not hold it", name.c_str());
 				Check(r.after < 1e-3 * r.tone, "a mute after a tone is not silent", name.c_str());
+			}
 		}
 	}
 	// a single tone above 3.7 kHz: in P25 silence rather than a buzz without the tone

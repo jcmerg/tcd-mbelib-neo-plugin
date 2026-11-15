@@ -19,7 +19,7 @@ Braucht einen C/C++-Compiler, `make`, `cmake` (3.13 oder neuer), `tar`, `curl` o
 ```bash
 git clone https://github.com/jcmerg/tcd-mbelib-neo-plugin.git
 cd tcd-mbelib-neo-plugin
-./build-mbelib-neo.sh        # lädt mbelib-neo 2.6.8 (gegen seine SHA-256 geprüft) und baut es hier
+./build-mbelib-neo.sh        # lädt mbelib-neo 2.6.11 (gegen seine SHA-256 geprüft) und baut es hier
 make
 make check                   # lädt das Plugin wie tcd und lässt jeden Codec einmal laufen
 sudo make install            # /usr/local/lib/tcd/mbelib_neo_codec.so
@@ -121,13 +121,14 @@ Der direkte Weg gewinnt mit 2.6.8 +0,37 bis +0,46 gegenüber dem Audio-Weg (mit 
 ## Dateien
 
 - `mbelib_neo_plugin.cpp`: das Plugin
-- `mbelib_neo_transcode.c`, `mbelib_neo_transcode.h`: `transcode`, gegen die privaten Header von mbelib-neo 2.6.8
+- `mbelib_neo_transcode.c`, `mbelib_neo_transcode.h`: `transcode`, gegen die privaten Header von mbelib-neo 2.6.11
 - `CodecPlugin.h`: eine Kopie der Plugin-Schnittstelle von tcd, gleich der von tcd gehalten (`make check` vergleicht sie in `tcd/plugins/`) (`TCD_CODEC_API 4`, ab tcd 0.20.0: `transcode`; tcd 0.15.0 bis 0.19.x brauchen Plugin 1.1.2, tcd 0.12.0 bis 0.14.x Plugin 1.0.3); `make TCD=/pfad/zu/urfd-ng/tcd` nimmt stattdessen die eines Klons
 - `build-mbelib-neo.sh`: holt und baut mbelib-neo
 - `plugin.map`: die Exportliste (Linux), `tests/smoke.cpp`: der Test von `make check`
 
 ## Versionen
 
+- **1.2.2** (15.11.2026): mbelib-neo 2.6.11. Sein Decoder folgt dem von DVSI in den selteneren DMR-Rahmen: ein Stille-Rahmen (b0 124/125) spielt 13,8 dB leiser auf 15 Bändern und hält in seinen ersten 10 ms den Rahmen davor, eine Stummschaltung blendet den letzten Rahmen aus, der Rahmen nach einer Stummschaltung oder einem Ton beginnt aus der Stille, verlorene Rahmen nach einem Ton spielen den Ton bis zu drei Rahmen weiter, und Ton-ID 255 ist ein verlorener Rahmen; die 16-Bit-Ausgabe von D-Star und DMR rundet zum nächsten Wert statt abzuschneiden. Auf den Sätzen unter „Gemessen“ (Rahmen des DV3003, auch mit Bitfehlern) liegt der Decoder innerhalb von 0,01 PESQ von 2.6.8: Sprachrahmen vom DV3003 enthalten keine Stille-Rahmen, Stummschaltungen oder Töne. `transcode` folgt dem Decoder: ein AMBE+2-Stille-Rahmen nimmt seinen niedrigeren Pegel ins Ziel mit, und verlorene Rahmen nach einem AMBE+2-Ton behalten den Ton. `CodecPlugin.h` wie in tcd 0.22.6 (nur Kommentare).
 - **1.2.1** (10.11.2026): mbelib-neo 2.6.8. Sein Decoder synthetisiert wie DVSI: in 10-ms-Teilrahmen, mit dem Rauschgenerator von DVSI (für jeden Stream gleich, ein Decode hängt also nicht mehr von einem Seed ab) und den Ton-Überblendungen von DMR. PESQ +0,12 bis +0,16 bei sauberer Sprache, +0,04 bis +0,11 bei FM-Aufnahmen, direkt transcodiert +0,13 bis +0,27 (siehe „Gemessen“). `transcode` im Code unverändert: die privaten Header, die es nutzt, sind dieselben wie in 2.6.7. `CodecPlugin.h` wie in tcd 0.22.0 (nur Kommentare).
 - **1.2.0** (09.11.2026): tcd-Codec-API 4 (ab tcd 0.20.0): `transcode` für alle sechs Richtungen zwischen D-Star, DMR/YSF und P25, aus dem Modell des Vocoders statt aus dem decodierten Audio; Töne bleiben Töne, wo das Ziel sie hat; +0,24 bis +0,36 PESQ gegenüber Decodieren und neu Codieren (mit 1.2.0 gemessen; „Gemessen“ hat die Werte von 1.2.1). Nutzt die privaten Quantisierer von mbelib-neo 2.6.7 und baut nur mit dieser Version. Kodieren und Dekodieren unverändert.
 - **1.1.2** (08.11.2026): mbelib-neo 2.6.7. Sein Decoder kommt näher an den von DVSI: die stimmhafte Phase, wie DVSI sie regeneriert (die Tonhöhe wechselt 16 Samples nach der Rahmenmitte, ein stimmhafter Einsatz startet die Phase neu), die Stimmhaftigkeit von DMR (Rate 33), wie DVSI sie liest, und DMR- und P25-Rahmen werden nicht mehr leiser skaliert, wo DVSI es nicht tut (bisher bis zu 2,95 dB leiser bei DMR, 1,05 dB bei P25). Die Messungen gegen den DV3003 unter „Gemessen“ sind die von 2.6.5. `CodecPlugin.h` wie in tcd 0.20.0 (API 4), das Plugin bleibt API 3.
