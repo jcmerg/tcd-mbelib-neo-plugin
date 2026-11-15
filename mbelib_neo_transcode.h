@@ -28,7 +28,8 @@ extern "C" {
 // what a decoded frame leaves for the transcoder
 struct mbe_transcode_model
 {
-	int kind;	// MBE_TRANSCODE_MODEL_* in mbelib_neo_transcode.c, 0: mute
+	int kind;	// MBE_TRANSCODE_MODEL_* in mbelib_neo_transcode.c, 0: nothing decoded
+	int held;	// under a D-Star or P25 mute: the kind a repeat plays on
 	float w0;
 	int L;
 	int Vl[57];
