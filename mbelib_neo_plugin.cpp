@@ -34,7 +34,7 @@ extern "C" {
 #include "CodecPlugin.h"
 #include "mbelib_neo_transcode.h"
 
-#define PLUGIN_VERSION "1.2.2"
+#define PLUGIN_VERSION "1.2.3"
 
 // transcode (mbelib_neo_transcode.c) uses mbelib-neo's private API of the
 // version it is written for: another needs that file checked
@@ -256,7 +256,7 @@ static int DecodeInfo(void *state, const uint8_t *frame, int16_t *pcm, tcd_frame
 		mbe_transcodeForget(&st->model);
 		return 1;
 	}
-	mbe_transcodeRecord(&st->model, st->vocoder, &result, bits, &st->decCur, &st->decPrev);
+	mbe_transcodeRecord(&st->model, st->vocoder, &result, bits, &st->decCur, &st->decPrev, &st->decEnh);
 	Info(result, info);
 	return 0;
 }

@@ -80,8 +80,13 @@ tests/smoke : tests/smoke.cpp $(TCD)/CodecPlugin.h
 
 # the plugin as tcd loads it; in tcd/plugins/<name>/ of an urfd-ng checkout the
 # copy of CodecPlugin.h must also be tcd's, and the version in the READMEs the plugin's
-check : $(PLUGIN) tests/smoke
+# transcode after a DMR mute, against mbelib-neo's decoder state (white box)
+tests/transcode_mute : tests/transcode_mute.c mbelib_neo_transcode.o mbelib_neo_transcode.h
+	$(CC) $(CPPFLAGS) -I. -I$(MBELIB)/include $(CFLAGS) $< mbelib_neo_transcode.o $(MBELIB)/lib/libmbe-neo.a -o $@ $(LDFLAGS) -lm
+
+check : $(PLUGIN) tests/smoke tests/transcode_mute
 	./tests/smoke ./$(PLUGIN)
+	./tests/transcode_mute
 	@[ ! -f ../../CodecPlugin.h ] || cmp CodecPlugin.h ../../CodecPlugin.h || { echo "CodecPlugin.h differs from ../../CodecPlugin.h (tcd's)" >&2; exit 1; }
 	@v=$$(sed -n 's/^#define PLUGIN_VERSION "\(.*\)"/\1/p' mbelib_neo_plugin.cpp); \
 	for r in README.md README.de.md; do \
@@ -89,7 +94,7 @@ check : $(PLUGIN) tests/smoke
 	done
 
 clean :
-	$(RM) -r *.o *.d $(PLUGIN) tests/smoke tests/*.d *.dSYM tests/*.dSYM
+	$(RM) -r *.o *.d $(PLUGIN) tests/smoke tests/transcode_mute tests/*.d *.dSYM tests/*.dSYM
 
 install : $(PLUGIN)
 	install -d "$(DESTDIR)$(PLUGINDIR)"

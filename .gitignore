@@ -4,3 +4,4 @@ mbelib-neo-*/
 /tests/smoke
 *.d
 *.dSYM/
+/tests/transcode_mute
