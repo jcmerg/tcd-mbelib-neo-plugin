@@ -18,7 +18,7 @@ extern "C" {
 #endif
 
 // the mbelib-neo version mbelib_neo_transcode.c is written for
-#define MBE_TRANSCODE_MBELIB "2.6.8"
+#define MBE_TRANSCODE_MBELIB "2.6.11"
 
 // the three vocoders
 #define MBE_TRANSCODE_AMBE2400 0	// D-Star
@@ -34,7 +34,7 @@ struct mbe_transcode_model
 	int Vl[57];
 	float log2Ml[57];
 	float tone_f1, tone_f2, tone_db;
-	int tone_repeats;	// a repeat plays the tone on (D-Star DTMF and call progress)
+	int tone_repeats;	// a repeat plays the tone on (D-Star DTMF and call progress, AMBE+2's tones)
 };
 
 // a frame that could not be decoded: transcode codes silence for it

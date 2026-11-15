@@ -65,6 +65,9 @@
 #define GAIN_DB_MAX 60.0f
 // AMBE's unvoiced factor, 0.2046 / sqrt(w0) (mbe_ambe2400_update_spectral_amplitudes)
 #define UNVOICED_COEFF 0.2046f
+// the further factor of an AMBE+2 silence frame's amplitudes (MBE_AMBE2450_SILENCE_GAIN,
+// static in mbelib-neo's ambe3600x2450.c)
+#define AMBE2450_SILENCE_GAIN 0.2046f
 // What a tone played as a voiced harmonic loses to each decoder's
 // quantization and enhancement, in log2, measured with a 1 kHz tone at
 // -20 dBFS: AMBE, AMBE+2, IMBE.
@@ -141,7 +144,8 @@ void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_p
 	if (flags & (MBE_PROCESS_FLAG_REPEAT | MBE_PROCESS_FLAG_ERASURE))
 	{
 		// after a tone the decoder plays silence, except D-Star's two-tone
-		// signals, which it holds over a few lost frames
+		// signals and AMBE+2's tones, which it holds over up to three lost
+		// frames (the fourth mutes)
 		if (m->kind == MBE_TRANSCODE_MODEL_TONE && !m->tone_repeats)
 			m->kind = MBE_TRANSCODE_MODEL_MUTE;
 		return;
@@ -160,15 +164,13 @@ void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_p
 		}
 		else if (vocoder == MBE_TRANSCODE_AMBE2450)
 		{
+			// tone ID 255 never gets here: the decoder takes it for a lost
+			// frame (MBE_PROCESS_FLAG_ERASURE)
 			int id = 0, ad = 0;
 			ambe2450_unpack_tone(bits, &id, &ad);
-			if (id == 255)
-			{
-				m->kind = MBE_TRANSCODE_MODEL_MUTE;	// the zero-amplitude tone: silence
-				return;
-			}
 			ok = mbe_tone_lookup_freqs(id, &f1, &f2);
 			m->tone_db = (float)mbe_tone_ambe2450_level_db(ad);
+			m->tone_repeats = 1;
 		}
 		if (ok)
 		{
@@ -183,10 +185,14 @@ void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_p
 	m->kind = MBE_TRANSCODE_MODEL_VOICE;
 	m->w0 = src->w0;
 	m->L = (src->L < 1) ? 1 : ((src->L > 56) ? 56 : src->L);
+	// AMBE+2 plays its silence frame a further 13.8 dB down, outside log2Ml
+	// (MBE_AMBE2450_SILENCE_GAIN in mbelib-neo's ambe3600x2450.c)
+	const float down = (vocoder == MBE_TRANSCODE_AMBE2450 && (flags & MBE_PROCESS_FLAG_SILENCE))
+		? log2f(AMBE2450_SILENCE_GAIN) : 0.0f;
 	for (int l = 1; l <= m->L; l++)
 	{
 		m->Vl[l] = src->Vl[l] != 0;
-		m->log2Ml[l] = src->log2Ml[l];
+		m->log2Ml[l] = src->log2Ml[l] + down;
 	}
 }
 
