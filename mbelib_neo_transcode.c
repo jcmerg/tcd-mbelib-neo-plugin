@@ -57,9 +57,10 @@
 
 #include "mbelib_neo_transcode.h"
 
-#define MBE_TRANSCODE_MODEL_MUTE  0
+#define MBE_TRANSCODE_MODEL_NONE  0	// nothing decoded yet, or a frame not decoded
 #define MBE_TRANSCODE_MODEL_VOICE 1
 #define MBE_TRANSCODE_MODEL_TONE  2
+#define MBE_TRANSCODE_MODEL_MUTE  3
 
 #define LOG2_PER_DB (1.0f / 6.0206f)
 // the gain range: beyond it every frame is silence or clips
@@ -126,10 +127,12 @@ static void ambe2450_unpack_tone(const char ambe_d[49], int *tone_id, int *ad)
 	*ad = (a << 1) | (ambe_d[44] & 1);
 }
 
-// the model a frame plays: pitch, voicing and decoded amplitudes, those of an
-// AMBE+2 silence frame down (log2) lower
-static void record_voice(struct mbe_transcode_model *m, const mbe_parms *src, float down)
+// the model a frame plays: pitch, voicing and decoded amplitudes; an AMBE+2
+// silence frame plays a further 13.8 dB down, outside log2Ml
+// (MBE_AMBE2450_SILENCE_GAIN in mbelib-neo's ambe3600x2450.c)
+static void record_voice(struct mbe_transcode_model *m, const mbe_parms *src, int ambe2450_silence)
 {
+	const float down = ambe2450_silence ? log2f(AMBE2450_SILENCE_GAIN) : 0.0f;
 	m->kind = MBE_TRANSCODE_MODEL_VOICE;
 	m->w0 = src->w0;
 	m->L = (src->L < 1) ? 1 : ((src->L > 56) ? 56 : src->L);
@@ -168,8 +171,7 @@ void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_p
 		// its last synthesized frame (a silence frame's marked as such).
 		if (m->kind == MBE_TRANSCODE_MODEL_MUTE && vocoder == MBE_TRANSCODE_AMBE2450)
 		{
-			const int held = mbe_frame_mark(enhanced) == MBE_FRAME_MARK_PREVIOUS_HELD;
-			record_voice(m, enhanced, held ? log2f(AMBE2450_SILENCE_GAIN) : 0.0f);
+			record_voice(m, enhanced, mbe_frame_mark(enhanced) == MBE_FRAME_MARK_PREVIOUS_HELD);
 		}
 		return;
 	}
@@ -205,10 +207,7 @@ void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_p
 	}
 	// a silence frame's model is decoded but kept out of the prediction
 	const mbe_parms *src = (flags & MBE_PROCESS_FLAG_SILENCE) ? cur : prev;
-	// AMBE+2 plays its silence frame a further 13.8 dB down, outside log2Ml
-	// (MBE_AMBE2450_SILENCE_GAIN in mbelib-neo's ambe3600x2450.c)
-	const int down = vocoder == MBE_TRANSCODE_AMBE2450 && (flags & MBE_PROCESS_FLAG_SILENCE);
-	record_voice(m, src, down ? log2f(AMBE2450_SILENCE_GAIN) : 0.0f);
+	record_voice(m, src, vocoder == MBE_TRANSCODE_AMBE2450 && (flags & MBE_PROCESS_FLAG_SILENCE));
 }
 
 // --- models ----------------------------------------------------------------

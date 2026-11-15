@@ -37,13 +37,22 @@ static void voiced_frame(int n, short *pcm)
 	}
 }
 
+static int fail(const char *what)
+{
+	printf("FAIL %s\n", what);
+	return 1;
+}
+
 int main(void)
 {
 	mbe_ambe2450_encoder *enc = mbe_ambe2450EncoderAlloc();
-	mbe_parms ec, ep, dc, dp, de, xc, xp, oc, op, oe;
-	mbe_initMbeParms(&ec, &ep, &de);
+	// the DMR encoder (ec, ep), the DMR decoder (dc, dp, de), transcode's
+	// D-Star prediction (xc, xp) and the D-Star decoder (oc, op, oe); unused
+	// is a scratch third set for the init of the first and the third
+	mbe_parms ec, ep, dc, dp, de, xc, xp, oc, op, oe, unused;
+	mbe_initMbeParms(&ec, &ep, &unused);
 	mbe_initMbeParms(&dc, &dp, &de);
-	mbe_initMbeParms(&xc, &xp, &oe);
+	mbe_initMbeParms(&xc, &xp, &unused);
 	mbe_initMbeParms(&oc, &op, &oe);
 	struct mbe_transcode_model model;
 	mbe_transcodeForget(&model);
@@ -52,7 +61,7 @@ int main(void)
 	char bits[49], dstar[88];
 	mbe_process_result result;
 	if (!enc)
-		return 1;
+		return fail("mbe_ambe2450EncoderAlloc");
 	// a lost frame, as tcd hands it on: an erasure (b0 120)
 	char lost[49] = { 0 };
 	lost[0] = lost[1] = lost[2] = lost[3] = 1;
@@ -64,7 +73,7 @@ int main(void)
 		{
 			voiced_frame(n, pcm);
 			if (mbe_encodeAmbe2450ParmsShort(enc, pcm, bits, &ec, &ep) < 0)
-				return 1;
+				return fail("mbe_encodeAmbe2450ParmsShort");
 			mbe_moveMbeParms(&ec, &ep);
 		}
 		else
@@ -76,28 +85,28 @@ int main(void)
 			dc.errorRate = 0.05f;
 		mbe_initProcessResult(&result);
 		if (mbe_processAmbe2450Data(ref, &result, frame, &dc, &dp, &de) < 0)
-			return 1;
+			return fail("mbe_processAmbe2450Data");
 		if (n >= 20)
 			flags[n - 20] = result.flags;
 		mbe_transcodeRecord(&model, MBE_TRANSCODE_AMBE2450, &result, frame, &dc, &dp, &de);
 		if (mbe_transcodeParms(&model, MBE_TRANSCODE_AMBE2450, MBE_TRANSCODE_AMBE2400, 0.0f, &xc, &xp, &sync, dstar) != 0)
-			return 1;
+			return fail("mbe_transcodeParms");
 		mbe_initProcessResult(&result);
 		if (mbe_processAmbe2400Data(pcm, &result, dstar, &oc, &op, &oe) < 0)
-			return 1;
+			return fail("mbe_processAmbe2400Data");
 	}
 	int failed = 0;
 	if (!(flags[0] & MBE_PROCESS_FLAG_MUTE))
-		failed = puts("FAIL frame 20 does not mute");
+		failed = fail("frame 20 does not mute");
 	for (int i = 1; i < 3; i++)
 		if (!(flags[i] & MBE_PROCESS_FLAG_REPEAT) || (flags[i] & MBE_PROCESS_FLAG_MUTE))
-			failed = puts("FAIL a lost frame after the mute does not repeat");
+			failed = fail("a lost frame after the mute does not repeat");
 	// the last lost frame on the DMR decoder, the D-Star decoder playing what transcode coded
 	printf("dmr mute, then lost -> dstar: source %.0f, target %.0f\n", rms(ref), rms(pcm));
 	if (rms(ref) <= 300.0)
-		failed = puts("FAIL the repeat after the mute is not heard");
+		failed = fail("the repeat after the mute is not heard");
 	if (rms(pcm) <= 0.25 * rms(ref))
-		failed = puts("FAIL transcode codes silence for the repeat after the mute");
+		failed = fail("transcode codes silence for the repeat after the mute");
 	mbe_ambe2450EncoderFree(enc);
 	return failed ? 1 : 0;
 }

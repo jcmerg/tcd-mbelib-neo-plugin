@@ -81,7 +81,7 @@ tests/smoke : tests/smoke.cpp $(TCD)/CodecPlugin.h
 # the plugin as tcd loads it; in tcd/plugins/<name>/ of an urfd-ng checkout the
 # copy of CodecPlugin.h must also be tcd's, and the version in the READMEs the plugin's
 # transcode after a DMR mute, against mbelib-neo's decoder state (white box)
-tests/transcode_mute : tests/transcode_mute.c mbelib_neo_transcode.o mbelib_neo_transcode.h
+tests/transcode_mute : tests/transcode_mute.c mbelib_neo_transcode.o mbelib_neo_transcode.h $(MBELIB)/lib/libmbe-neo.a Makefile
 	$(CC) $(CPPFLAGS) -I. -I$(MBELIB)/include $(CFLAGS) $< mbelib_neo_transcode.o $(MBELIB)/lib/libmbe-neo.a -o $@ $(LDFLAGS) -lm
 
 check : $(PLUGIN) tests/smoke tests/transcode_mute
