@@ -143,38 +143,10 @@ static void record_voice(struct mbe_transcode_model *m, const mbe_parms *src, in
 	}
 }
 
-// What the frame just processed leaves: the model of a voice, silence or
-// repeated frame; a tone's frequencies and level; or the mute.
-void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_process_result *result, const char *bits,
-	const mbe_parms *cur, const mbe_parms *prev, const mbe_parms *enhanced)
+// a frame the decoder decoded: a tone, or the model of a voice or silence frame
+static void record_frame(struct mbe_transcode_model *m, int vocoder, unsigned flags, const char *bits, const mbe_parms *cur,
+	const mbe_parms *prev)
 {
-	const unsigned flags = result->flags;
-	if (flags & MBE_PROCESS_FLAG_MUTE)
-	{
-		m->kind = MBE_TRANSCODE_MODEL_MUTE;
-		return;
-	}
-	// A repeat (a lost frame, an erasure, an uncorrectable C0 word) plays the
-	// last frame again: the model stays the one recorded for it. The
-	// decoder's prev can hold another frame by then (the last voice frame
-	// after a silence or tone frame, or the corrupt frame's amplitudes D-Star
-	// keeps for its prediction).
-	if (flags & (MBE_PROCESS_FLAG_REPEAT | MBE_PROCESS_FLAG_ERASURE))
-	{
-		// after a tone the decoder plays silence, except D-Star's two-tone
-		// signals and AMBE+2's tones, which it holds over up to three lost
-		// frames (the fourth mutes)
-		if (m->kind == MBE_TRANSCODE_MODEL_TONE && !m->tone_repeats)
-			m->kind = MBE_TRANSCODE_MODEL_MUTE;
-		// An AMBE+2 repeat after a mute plays, from silence, the model the
-		// decoder kept underneath the mute: the repeated model it leaves in
-		// its last synthesized frame (a silence frame's marked as such).
-		if (m->kind == MBE_TRANSCODE_MODEL_MUTE && vocoder == MBE_TRANSCODE_AMBE2450)
-		{
-			record_voice(m, enhanced, mbe_frame_mark(enhanced) == MBE_FRAME_MARK_PREVIOUS_HELD);
-		}
-		return;
-	}
 	if (flags & MBE_PROCESS_FLAG_TONE)
 	{
 		float f1 = 0.0f, f2 = 0.0f;
@@ -208,6 +180,50 @@ void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_p
 	// a silence frame's model is decoded but kept out of the prediction
 	const mbe_parms *src = (flags & MBE_PROCESS_FLAG_SILENCE) ? cur : prev;
 	record_voice(m, src, vocoder == MBE_TRANSCODE_AMBE2450 && (flags & MBE_PROCESS_FLAG_SILENCE));
+}
+
+// What the frame just processed leaves: the model of a voice, silence or
+// repeated frame; a tone's frequencies and level; or the mute.
+void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_process_result *result, const char *bits,
+	const mbe_parms *cur, const mbe_parms *prev, const mbe_parms *enhanced)
+{
+	const unsigned flags = result->flags;
+	// A repeat (a lost frame, an erasure, an uncorrectable C0 word) plays the
+	// last frame again: the model stays the one recorded for it. The
+	// decoder's prev can hold another frame by then (the last voice frame
+	// after a silence or tone frame, or the corrupt frame's amplitudes D-Star
+	// keeps for its prediction).
+	if (flags & (MBE_PROCESS_FLAG_REPEAT | MBE_PROCESS_FLAG_ERASURE))
+	{
+		// D-Star and P25 repeat the frame the error rate muted, as it was
+		if (m->kind == MBE_TRANSCODE_MODEL_MUTE && vocoder != MBE_TRANSCODE_AMBE2450)
+			m->kind = m->held;
+		// after a tone the decoder plays silence, except D-Star's two-tone
+		// signals and AMBE+2's tones, which it holds over up to three lost
+		// frames (the fourth mutes)
+		if (m->kind == MBE_TRANSCODE_MODEL_TONE && !m->tone_repeats)
+		{
+			m->kind = MBE_TRANSCODE_MODEL_MUTE;
+			m->held = MBE_TRANSCODE_MODEL_NONE;
+		}
+		// An AMBE+2 repeat after a mute plays, from silence, the model the
+		// decoder kept underneath the mute: the repeated model it leaves in
+		// its last synthesized frame (a silence frame's marked as such).
+		if (m->kind == MBE_TRANSCODE_MODEL_MUTE && vocoder == MBE_TRANSCODE_AMBE2450 && !(flags & MBE_PROCESS_FLAG_MUTE))
+			record_voice(m, enhanced, mbe_frame_mark(enhanced) == MBE_FRAME_MARK_PREVIOUS_HELD);
+	}
+	else
+		record_frame(m, vocoder, flags, bits, cur, prev);
+	// A muted frame codes silence; D-Star and P25 keep its model for a
+	// repeat. Not at the repeat limit: D-Star stays muted, P25 goes on with a
+	// reset, near silent model.
+	if (flags & MBE_PROCESS_FLAG_MUTE)
+	{
+		const int limit = (flags & MBE_PROCESS_FLAG_REPEAT) && cur->repeatCount >= MBE_MAX_FRAME_REPEATS;
+		const int keep = vocoder != MBE_TRANSCODE_AMBE2450 && m->kind != MBE_TRANSCODE_MODEL_MUTE && !limit;
+		m->held = keep ? m->kind : MBE_TRANSCODE_MODEL_NONE;
+		m->kind = MBE_TRANSCODE_MODEL_MUTE;
+	}
 }
 
 // --- models ----------------------------------------------------------------
