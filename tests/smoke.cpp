@@ -313,7 +313,8 @@ int main(int argc, char **argv)
 	Check(p->codecs == (TCD_CODEC_DSTAR | TCD_CODEC_DMR | TCD_CODEC_P25), "codecs", "plugin");
 	Check(p->init && p->open && p->close && p->encode && p->decode, "a required function is NULL", "plugin");
 	Check(p->start && p->decode_info && p->frame_format, "start, decode_info or frame_format is NULL", "plugin");
-	Check(p->api == 4 && p->transcode, "no transcode (api 4)", "plugin");
+	Check(p->api == 5 && p->transcode, "no transcode (api 5)", "plugin");
+	Check(p->flags & TCD_PLUGIN_CONCURRENT, "not TCD_PLUGIN_CONCURRENT (api 5)", "plugin");
 	if (s_Failed)
 		return 1;
 	Check(p->init() == 0, "init", "plugin");
