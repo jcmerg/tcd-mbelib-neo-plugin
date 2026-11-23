@@ -34,7 +34,7 @@ extern "C" {
 #include "CodecPlugin.h"
 #include "mbelib_neo_transcode.h"
 
-#define PLUGIN_VERSION "1.2.4"
+#define PLUGIN_VERSION "1.3.0"
 
 // transcode (mbelib_neo_transcode.c) uses mbelib-neo's private API of the
 // version it is written for: another needs that file checked
@@ -294,9 +294,9 @@ static int Transcode(void *decoder, void *encoder, float gain_db, uint8_t *frame
 	return PackFrame(st->codec, bits, frame);
 }
 
-// API 4: tcd 0.20.0 and later load it
+// API 5: tcd 0.23.0 and later load it
 static const tcd_codec_plugin s_Plugin = {
-	4,
+	5,
 	"mbelib-neo",
 	"plugin " PLUGIN_VERSION ": D-Star AMBE, DMR AMBE+2 and P25 IMBE from mbelib-neo " MBELIB_VERSION,
 	TCD_CODEC_DSTAR | TCD_CODEC_DMR | TCD_CODEC_P25,
@@ -312,6 +312,9 @@ static const tcd_codec_plugin s_Plugin = {
 	DecodeInfo,
 	FrameFormat,
 	Transcode,
+	// mbelib-neo keeps a stream's state in its mbe_parms (in SStream here) and its
+	// caches and random numbers per thread: tcd may code several streams at once
+	TCD_PLUGIN_CONCURRENT,
 };
 
 // the plugin's only exported symbol (-fvisibility=hidden and the export list in the Makefile)

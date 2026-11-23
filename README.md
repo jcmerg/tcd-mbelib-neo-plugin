@@ -10,7 +10,7 @@ A codec plugin for **tcd**, the transcoder of [urfd-ng](https://github.com/jcmer
 
 With it, tcd transcodes without DVSI hardware, or more modules than the AMBE sticks have channels. Between D-Star, DMR/YSF and P25 it also transcodes directly (`Transcode = direct`): the outgoing frame is made from the vocoder parameters of the incoming one, without decoding to audio and encoding again, which sounds noticeably better.
 
-**Requirement**: tcd 0.20.0 or later (urfd-ng's `tcd/`); the `op25` and `codec2` lines under "Use" need tcd 0.22.0, leave them out with an older one. tcd 0.15.0 to 0.19.x need plugin 1.1.2, 0.12.0 to 0.14.x plugin 1.0.3. The release notes are on the [releases page](https://github.com/jcmerg/tcd-mbelib-neo-plugin/releases).
+**Requirement**: tcd 0.23.0 or later (urfd-ng's `tcd/`). tcd 0.20.0 to 0.22.x need plugin 1.2.4 (there the `op25` and `codec2` lines under "Use" need tcd 0.22.0), 0.15.0 to 0.19.x plugin 1.1.2, 0.12.0 to 0.14.x plugin 1.0.3. The release notes are on the [releases page](https://github.com/jcmerg/tcd-mbelib-neo-plugin/releases).
 
 ## Patent notice
 
