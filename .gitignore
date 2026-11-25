@@ -5,3 +5,4 @@ mbelib-neo-*/
 *.d
 *.dSYM/
 /tests/transcode_mute
+/tests/transcode_unvoiced

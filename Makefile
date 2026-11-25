@@ -79,18 +79,20 @@ tests/smoke : tests/smoke.cpp $(TCD)/CodecPlugin.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $< -o $@ $(LDFLAGS) $(if $(filter Darwin,$(shell uname -s)),,-ldl)
 
 # transcode after a mute, against mbelib-neo's decoder state (white box)
-tests/transcode_mute : tests/transcode_mute.c mbelib_neo_transcode.o mbelib_neo_transcode.h $(MBELIB)/lib/libmbe-neo.a Makefile
+# the transcode tests link mbelib_neo_transcode.o and mbelib-neo's static archive, as the plugin does
+tests/transcode_% : tests/transcode_%.c mbelib_neo_transcode.o mbelib_neo_transcode.h $(MBELIB)/lib/libmbe-neo.a Makefile
 	$(CC) $(CPPFLAGS) -I. -I$(MBELIB)/include $(CFLAGS) $< mbelib_neo_transcode.o $(MBELIB)/lib/libmbe-neo.a -o $@ $(LDFLAGS) -lm
 
 # the plugin as tcd loads it; in tcd/plugins/<name>/ of an urfd-ng checkout the
 # copy of CodecPlugin.h must also be tcd's
-check : $(PLUGIN) tests/smoke tests/transcode_mute
+check : $(PLUGIN) tests/smoke tests/transcode_mute tests/transcode_unvoiced
 	./tests/smoke ./$(PLUGIN)
 	./tests/transcode_mute
+	./tests/transcode_unvoiced
 	@[ ! -f ../../CodecPlugin.h ] || cmp CodecPlugin.h ../../CodecPlugin.h || { echo "CodecPlugin.h differs from ../../CodecPlugin.h (tcd's)" >&2; exit 1; }
 
 clean :
-	$(RM) -r *.o *.d $(PLUGIN) tests/smoke tests/transcode_mute tests/*.d *.dSYM tests/*.dSYM
+	$(RM) -r *.o *.d $(PLUGIN) tests/smoke tests/transcode_mute tests/transcode_unvoiced tests/*.d *.dSYM tests/*.dSYM
 
 install : $(PLUGIN)
 	install -d "$(DESTDIR)$(PLUGINDIR)"

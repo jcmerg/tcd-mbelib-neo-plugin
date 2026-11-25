@@ -57,11 +57,6 @@
 
 #include "mbelib_neo_transcode.h"
 
-#define MBE_TRANSCODE_MODEL_NONE  0	// nothing decoded yet, or a frame not decoded
-#define MBE_TRANSCODE_MODEL_VOICE 1
-#define MBE_TRANSCODE_MODEL_TONE  2
-#define MBE_TRANSCODE_MODEL_MUTE  3
-
 #define LOG2_PER_DB (1.0f / 6.0206f)
 // the gain range: beyond it every frame is silence or clips
 #define GAIN_DB_MAX 60.0f
@@ -91,6 +86,7 @@ struct model
 	int L;
 	int Vl[57];
 	float a[57];
+	int tone;	// a tone played as voiced harmonics: it stays on the pitch grid that puts it on a harmonic
 };
 
 static float unvoiced_log2(float f0)
@@ -231,6 +227,7 @@ void mbe_transcodeRecord(struct mbe_transcode_model *m, int vocoder, const mbe_p
 // the quietest model: AMBE's silence frame, every harmonic at the floor
 static void quiet_model(struct model *m)
 {
+	m->tone = 0;
 	m->f0 = MBE_AMBE_SILENCE_W0 / (2.0f * (float)M_PI);
 	m->L = MBE_AMBE_SILENCE_L;
 	for (int l = 1; l <= m->L; l++)
@@ -242,6 +239,7 @@ static void quiet_model(struct model *m)
 
 static void voice_model(const struct mbe_transcode_model *src, int vocoder, float gain_log2, struct model *m)
 {
+	m->tone = 0;
 	m->f0 = src->w0 / (2.0f * (float)M_PI);
 	m->L = src->L;
 	const float unvc = (vocoder == MBE_TRANSCODE_IMBE) ? 0.0f : unvoiced_log2(m->f0);
@@ -271,6 +269,12 @@ static int imbe_pitch_code(float f0)
 	return (int)((b0 < 0) ? 0 : ((b0 > 207) ? 207 : b0));
 }
 
+// IMBE's fundamental (cycles per sample) of pitch code b0, TIA-102.BABA eq 46
+static float imbe_f0(int b0)
+{
+	return 2.0f / ((float)b0 + 39.5f);
+}
+
 // the fundamental (cycles per sample) the target codes nearest to f0
 static float quantized_f0(float f0, int vocoder)
 {
@@ -278,7 +282,7 @@ static float quantized_f0(float f0, int vocoder)
 		return mbe_ambe2400_f0(ambe2400_pitch_code(f0));
 	if (vocoder == MBE_TRANSCODE_AMBE2450)
 		return mbe_ambe2450_f0(mbe_ambe2450_pitch_code(f0));
-	return 2.0f / ((float)imbe_pitch_code(f0) + 39.5f);
+	return imbe_f0(imbe_pitch_code(f0));
 }
 
 // the harmonics the target codes at the fundamental f0 (cycles per sample) of its pitch grid
@@ -330,6 +334,7 @@ static int tone_model(float f1, float f2, float db, int vocoder, struct model *m
 	}
 	if (best >= 1.0e9f)
 		return 0;
+	m->tone = 1;
 	m->f0 = f0;
 	m->L = harmonic_count(f0, vocoder);
 	for (int l = 1; l <= m->L; l++)
@@ -354,6 +359,17 @@ static int source_harmonic(const struct model *s, float f0t, int l)
 	return (ls < 1) ? 1 : ((ls > s->L) ? s->L : ls);
 }
 
+// A frame with no voiced band goes out at one fixed pitch code (a tone played
+// as voice keeps its grid), as
+// mbelib-neo's encoders send it (ambe2400_enc_unvoiced_grid,
+// ambe2450_enc_unvoiced_grid, imbe_enc_unvoiced_grid): its decoders read the
+// pitch code of such a frame as whether the voicing of the frame before
+// lasts into it, and the source's pitch of noise says either at random.
+#define AMBE2400_UNVOICED_B0 MBE_AMBE2400_MAX_VOICE_B0	// 56 harmonics
+#define AMBE2450_UNVOICED_VUV 16	// the V/UV row with no voiced band
+#define AMBE2450_UNVOICED_B0 (MBE_AMBE2450_PITCH_CODES - 1)	// b0 119, 56 harmonics
+#define IMBE_UNVOICED_B0 127	// 37 harmonics
+
 // the decision of a voicing group by the energy of its harmonics
 struct vote
 {
@@ -370,26 +386,57 @@ static void vote_add(struct vote *v, int group, float a, int voiced)
 		v->unvoiced[group] += e;
 }
 
+// Harmonics 1..L of the target grid at fundamental f0t, each the amplitude of
+// the source harmonic nearest in frequency, those above L cleared; with v, each harmonic's voicing
+// is added to the vote of its group: D-Star's eight 500 Hz columns, the
+// bands of AMBE+2 and IMBE.
+static void map_harmonics(const struct model *s, int vocoder, float f0t, int L, float a[57], struct vote *v)
+{
+	for (int l = 1; l <= L; l++)
+	{
+		const int ls = source_harmonic(s, f0t, l);
+		a[l] = s->a[ls];
+		if (!v)
+			continue;
+		int group;
+		if (vocoder == MBE_TRANSCODE_AMBE2400)
+		{
+			group = (int)((float)l * 16.0f * f0t);
+			group = (group > 7) ? 7 : group;
+		}
+		else
+			group = mbe_analysis_band_of(l) - 1;
+		vote_add(v, group, a[l], s->Vl[ls]);
+	}
+	for (int l = L + 1; l <= 56; l++)
+		a[l] = 0.0f;
+}
+
 // --- AMBE+2 ------------------------------------------------------------------
 
 static int code_ambe2450(const struct model *s, mbe_parms *cur, const mbe_parms *prev, char bits[49])
 {
-	const int b0 = mbe_ambe2450_pitch_code(s->f0);
-	const float f0q = mbe_ambe2450_f0(b0);
-	const int L = mbe_ambe2450_harmonic_count(b0);
+	int b0 = mbe_ambe2450_pitch_code(s->f0);
+	float f0q = mbe_ambe2450_f0(b0);
+	int L = mbe_ambe2450_harmonic_count(b0);
 	float a[57] = { 0 };
 	float magnitude[57] = { 0 };
 	unsigned char bands[12];
 	struct vote v = { { 0 }, { 0 } };
+	map_harmonics(s, MBE_TRANSCODE_AMBE2450, f0q, L, a, &v);
 	for (int l = 1; l <= L; l++)
-	{
-		const int ls = source_harmonic(s, f0q, l);
-		a[l] = s->a[ls];
 		magnitude[l] = exp2f(a[l]);
-		vote_add(&v, mbe_analysis_band_of(l) - 1, a[l], s->Vl[ls]);
-	}
 	for (int b = 0; b < 12; b++)
 		bands[b] = (unsigned char)(v.voiced[b] > v.unvoiced[b]);
+	const int b1 = mbe_ambe2450_quantize_vuv(b0, magnitude, bands);
+	if (b1 == AMBE2450_UNVOICED_VUV && !s->tone)
+	{
+		b0 = AMBE2450_UNVOICED_B0;
+		f0q = mbe_ambe2450_f0(b0);
+		L = mbe_ambe2450_harmonic_count(b0);
+		map_harmonics(s, MBE_TRANSCODE_AMBE2450, f0q, L, a, NULL);
+		memset(bands, 0, sizeof(bands));
+	}
 	// The unvoiced factor is taken out by the band decisions, not by the
 	// quantized V/UV vector the decoder applies it by: a harmonic the vector
 	// unvoices against its band plays a little quieter as noise than it was
@@ -398,7 +445,6 @@ static int code_ambe2450(const struct model *s, mbe_parms *cur, const mbe_parms 
 	for (int l = 1; l <= L; l++)
 		if (!bands[mbe_analysis_band_of(l) - 1])
 			a[l] -= unvc;
-	const int b1 = mbe_ambe2450_quantize_vuv(b0, magnitude, bands);
 	mbe_ambe2450_quantize_amplitudes(b0, b1, a, prev, bits);
 	// the decoder's model of the frame, for the prediction of the next
 	mbe_parms history = *prev;
@@ -473,24 +519,20 @@ static void ambe2400_quantize(int b0, int b1, const float a[57], const mbe_parms
 			cur->K++;
 	}
 	cur->gamma = q.gamma_q;
+	// the decoder's frame mark for these bits (as mbelib-neo's ambe2400_encode_voice)
+	mbe_ambe2400_mark_unvoiced_pitch(cur, q.b[0]);
 	mbe_ambe2400_update_spectral_amplitudes(cur, &prediction_prev, q.Tl_q, UNVOICED_COEFF / sqrtf(cur->w0));
 	cur->Vl[0] &= ~MBE_AMBE2400_HISTORY_BITS;
 }
 
 static int code_ambe2400(const struct model *s, mbe_parms *cur, const mbe_parms *prev, char bits[49])
 {
-	const int b0 = ambe2400_pitch_code(s->f0);
-	const float f0q = mbe_ambe2400_f0(b0);
-	const int L = mbe_ambe2400_harmonic_count(f0q);
+	int b0 = ambe2400_pitch_code(s->f0);
+	float f0q = mbe_ambe2400_f0(b0);
+	int L = mbe_ambe2400_harmonic_count(f0q);
 	float a[57] = { 0 };
 	struct vote v = { { 0 }, { 0 } };
-	for (int l = 1; l <= L; l++)
-	{
-		const int ls = source_harmonic(s, f0q, l);
-		a[l] = s->a[ls];
-		const int column = (int)((float)l * 16.0f * f0q);
-		vote_add(&v, (column > 7) ? 7 : column, a[l], s->Vl[ls]);
-	}
+	map_harmonics(s, MBE_TRANSCODE_AMBE2400, f0q, L, a, &v);
 	// b1: one bit per 1 kHz, two columns each
 	int b1 = 0;
 	for (int bit = 0; bit < 4; bit++)
@@ -498,6 +540,13 @@ static int code_ambe2400(const struct model *s, mbe_parms *cur, const mbe_parms 
 		const int c = 2 * bit;
 		const int voiced = v.voiced[c] + v.voiced[c + 1] > v.unvoiced[c] + v.unvoiced[c + 1];
 		b1 |= voiced << (3 - bit);
+	}
+	if (b1 == 0 && !s->tone)
+	{
+		b0 = AMBE2400_UNVOICED_B0;
+		f0q = mbe_ambe2400_f0(b0);
+		L = mbe_ambe2400_harmonic_count(f0q);
+		map_harmonics(s, MBE_TRANSCODE_AMBE2400, f0q, L, a, NULL);
 	}
 	const float unvc = unvoiced_log2(f0q);
 	for (int l = 1; l <= L; l++)
@@ -511,25 +560,31 @@ static int code_ambe2400(const struct model *s, mbe_parms *cur, const mbe_parms 
 
 static int code_imbe(const struct model *s, mbe_parms *cur, const mbe_parms *prev, int sync, char bits[88])
 {
-	const int b0 = imbe_pitch_code(s->f0);
-	const float w0 = (float)(4 * M_PI) / ((float)b0 + 39.5f);
-	const float f0q = w0 / (2.0f * (float)M_PI);
-	const int L = clamp_l((int)(0.9254 * (int)((M_PI / w0) + 0.25)));
+	int b0 = imbe_pitch_code(s->f0);
+	float f0q = imbe_f0(b0);
+	int L = harmonic_count(f0q, MBE_TRANSCODE_IMBE);
 	float logm[57] = { 0 };
 	unsigned char bands[12] = { 0 };
 	struct vote v = { { 0 }, { 0 } };
-	float mean = 0.0f;
-	for (int l = 1; l <= L; l++)
-	{
-		const int ls = source_harmonic(s, f0q, l);
-		logm[l] = s->a[ls];
-		mean += logm[l];
-		vote_add(&v, mbe_analysis_band_of(l) - 1, logm[l], s->Vl[ls]);
-	}
+	int voiced = 0;
+	map_harmonics(s, MBE_TRANSCODE_IMBE, f0q, L, logm, &v);
 	for (int b = 0; b < 12; b++)
+	{
 		bands[b] = (unsigned char)(v.voiced[b] > v.unvoiced[b]);
+		voiced |= bands[b];
+	}
+	if (!voiced && !s->tone)
+	{
+		b0 = IMBE_UNVOICED_B0;
+		f0q = imbe_f0(b0);
+		L = harmonic_count(f0q, MBE_TRANSCODE_IMBE);
+		map_harmonics(s, MBE_TRANSCODE_IMBE, f0q, L, logm, NULL);
+	}
 	// G1 carries the mean log2 amplitude, and the gain table's lowest level
 	// is the floor under it (as mbelib-neo's imbe_encode)
+	float mean = 0.0f;
+	for (int l = 1; l <= L; l++)
+		mean += logm[l];
 	mean /= (float)L;
 	if (mean < B2[0])
 		(void)mbe_encoder_fit_floor(logm, L, mean, B2[0]);
