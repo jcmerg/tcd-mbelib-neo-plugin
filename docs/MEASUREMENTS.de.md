@@ -15,7 +15,16 @@ Encoder von mbelib-neo 2.6.12 (Plugin 1.3.1, 25.11.2026), PESQ auf den unten bes
 | D-Star → DV3003 | 2,48 | 2,59 | 2,71 |
 | D-Star → mbelib-neo | | 2,56 | 2,70 |
 
-Die Decoder sind für D-Star unverändert, für DMR innerhalb von 0,02 (DV3003-Frames, auch mit 1 / 3 / 5 % Bitfehlern). Weißes Rauschen bei -30 und -50 dBFS, mit den festen Pitch-Codes kodiert, spielt der DV3003 als Rauschen mit demselben Pegel und ohne mehr Energie unter 150 Hz als beim verfolgten Pitch.
+Decoder von 2.6.12 auf den DV3003-Frames derselben Clips, auch mit 1 / 3 / 5 % gekippten Bits (25.11.2026, Plugin 1.3.1 über `decode` von tcd):
+
+| DV3003-Frames → Decoder | DV3003 | 2.6.12 |
+|---|---|---|
+| DMR | 2,52 | 2,53 |
+| DMR, 1 / 3 / 5 % Bitfehler | 2,47 / 2,37 / 2,15 | 2,45 / 2,35 / 2,17 |
+| D-Star | 2,48 | 2,46 |
+| D-Star, 1 / 3 / 5 % Bitfehler | 2,44 / 2,33 / 2,07 | 2,39 / 2,25 / 2,04 |
+
+P25, Encoder und Decoder des Plugins: 2,80. Weißes Rauschen bei -30 und -50 dBFS, mit den festen Pitch-Codes kodiert, spielt der DV3003 als Rauschen mit demselben Pegel und ohne mehr Energie unter 150 Hz als beim verfolgten Pitch.
 
 Klang gegen einen DV3003 (28.10.2026, mbelib-neo 2.6.5, Plugin 1.0.2; 1.0.3 bis 1.1.1 kodieren D-Star und DMR genauso): PESQ (ITU-T P.862, Schmalband, MOS von 1 bis 4,5) gegen das Original, Mittel über 19 Clips (18 FM-Mitschnitte, 1 Sprachclip, 8 kHz, je höchstens die ersten 100 s), jedes Paar aus Encoder und Decoder:
 

@@ -15,7 +15,16 @@ Encoders of mbelib-neo 2.6.12 (plugin 1.3.1, 2026-11-25), PESQ on the 19 clips d
 | D-Star → DV3003 | 2.48 | 2.59 | 2.71 |
 | D-Star → mbelib-neo | | 2.56 | 2.70 |
 
-The decoders are unchanged for D-Star and within 0.02 for DMR (DV3003 frames, also with 1 / 3 / 5 % bit errors). White noise at -30 and -50 dBFS, coded at the fixed pitch codes, plays on the DV3003 as noise at the same level and with no more energy below 150 Hz than at the tracked pitch.
+Decoder of 2.6.12 on the DV3003's frames of the same clips, also with 1 / 3 / 5 % of their bits flipped (2026-11-25, plugin 1.3.1 through tcd's `decode`):
+
+| DV3003 frames → decoder | DV3003 | 2.6.12 |
+|---|---|---|
+| DMR | 2.52 | 2.53 |
+| DMR, 1 / 3 / 5 % bit errors | 2.47 / 2.37 / 2.15 | 2.45 / 2.35 / 2.17 |
+| D-Star | 2.48 | 2.46 |
+| D-Star, 1 / 3 / 5 % bit errors | 2.44 / 2.33 / 2.07 | 2.39 / 2.25 / 2.04 |
+
+P25, the plugin's encoder and decoder: 2.80. White noise at -30 and -50 dBFS, coded at the fixed pitch codes, plays on the DV3003 as noise at the same level and with no more energy below 150 Hz than at the tracked pitch.
 
 Sound against a DV3003 (2026-10-28, mbelib-neo 2.6.5, plugin 1.0.2; 1.0.3 to 1.1.1 code D-Star and DMR the same): PESQ (ITU-T P.862, narrowband, MOS from 1 to 4.5) against the original audio, mean over 19 clips (18 FM recordings, 1 speech clip, 8 kHz, at most the first 100 s of each), each pair of encoder and decoder:
 
