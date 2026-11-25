@@ -18,17 +18,23 @@ extern "C" {
 #endif
 
 // the mbelib-neo version mbelib_neo_transcode.c is written for
-#define MBE_TRANSCODE_MBELIB "2.6.11"
+#define MBE_TRANSCODE_MBELIB "2.6.12"
 
 // the three vocoders
 #define MBE_TRANSCODE_AMBE2400 0	// D-Star
 #define MBE_TRANSCODE_AMBE2450 1	// DMR/YSF/NXDN
 #define MBE_TRANSCODE_IMBE     2	// P25
 
+// what the decoder's last frame was (struct mbe_transcode_model's kind)
+#define MBE_TRANSCODE_MODEL_NONE  0	// nothing decoded yet, or a frame not decoded
+#define MBE_TRANSCODE_MODEL_VOICE 1
+#define MBE_TRANSCODE_MODEL_TONE  2
+#define MBE_TRANSCODE_MODEL_MUTE  3
+
 // what a decoded frame leaves for the transcoder
 struct mbe_transcode_model
 {
-	int kind;	// MBE_TRANSCODE_MODEL_* in mbelib_neo_transcode.c, 0: nothing decoded
+	int kind;	// MBE_TRANSCODE_MODEL_*
 	int held;	// under a D-Star or P25 mute: the kind a repeat plays on
 	float w0;
 	int L;

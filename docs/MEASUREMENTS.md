@@ -6,6 +6,17 @@ Speed and sound of the plugin, measured with the versions named in each part. Th
 
 On a Raspberry Pi 4 (armhf) about 0.18 ms to encode and 0.04 ms to decode a 20 ms frame with the NEON routines (0.20 and 0.07 ms without, the frames encoded bit for bit the same), on a Pi 5 0.09 ms and 0.03 ms. Against a DVSI DV3003, frames go both ways: mbelib-neo frames decoded by the DV3003 and DV3003 frames decoded by mbelib-neo come out at the same level and envelope as the DV3003 on its own, for D-Star and DMR.
 
+Encoders of mbelib-neo 2.6.12 (plugin 1.3.1, 2026-11-25), PESQ on the 19 clips described below against a DV3003, 2.6.11 (plugin 1.3.0) for comparison. 2.6.12 sends a frame with no voiced band at one fixed pitch code (D-Star b0 123, DMR 119, P25 127) and chooses the six spectral vectors of D-Star and DMR together:
+
+| Encoder → decoder | DV3003 on its own | 2.6.11 | 2.6.12 |
+|---|---|---|---|
+| DMR → DV3003 | 2.52 | 2.49 | 2.65 |
+| DMR → mbelib-neo | | 2.50 | 2.65 |
+| D-Star → DV3003 | 2.48 | 2.59 | 2.71 |
+| D-Star → mbelib-neo | | 2.56 | 2.70 |
+
+The decoders are unchanged for D-Star and within 0.02 for DMR (DV3003 frames, also with 1 / 3 / 5 % bit errors). White noise at -30 and -50 dBFS, coded at the fixed pitch codes, plays on the DV3003 as noise at the same level and with no more energy below 150 Hz than at the tracked pitch.
+
 Sound against a DV3003 (2026-10-28, mbelib-neo 2.6.5, plugin 1.0.2; 1.0.3 to 1.1.1 code D-Star and DMR the same): PESQ (ITU-T P.862, narrowband, MOS from 1 to 4.5) against the original audio, mean over 19 clips (18 FM recordings, 1 speech clip, 8 kHz, at most the first 100 s of each), each pair of encoder and decoder:
 
 | Encoder → decoder | DMR/YSF | D-Star |
